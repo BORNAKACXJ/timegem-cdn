@@ -1,5 +1,5 @@
 
-var TIMEGEM_API_BASE = 'https://mpt-api.netlify.app';
+var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
 (function () {
     'use strict';
@@ -87,11 +87,48 @@ var TIMEGEM_API_BASE = 'https://mpt-api.netlify.app';
 
     // ─── API calls (all go through your Netlify API — no credentials in browser) ──
 
+    var LOG_PREFIX = '[Timegem Venue]';
+
+    function logVenueStatus(gemId, result) {
+        if (!result || !result.ok) {
+            var apiError = result && result.data && result.data.error;
+            console.log(LOG_PREFIX, 'API connection: incorrect', {
+                gemId: gemId,
+                status: result ? result.status : 0,
+                error: apiError || (result && result.error ? String(result.error) : 'Network or parse error')
+            });
+            console.log(LOG_PREFIX, 'Venue found: no');
+            return;
+        }
+
+        var data = result.data;
+        var venueFound = !!(data && data.gem === 'venue' && data.profile && data.profile.id);
+        console.log(LOG_PREFIX, 'API connection: correct', { gemId: gemId, status: result.status });
+        if (venueFound) {
+            console.log(LOG_PREFIX, 'Venue found: yes', {
+                profileId: data.profile.id,
+                displayName: data.profile.display_name,
+                venueId: data.profile.venue_id,
+                recommendations: Array.isArray(data.recommendations) ? data.recommendations.length : 0
+            });
+        } else {
+            console.log(LOG_PREFIX, 'Venue found: no', {
+                reason: data && data.error ? data.error : 'No venue profile in API response'
+            });
+        }
+    }
+
     function fetchArtistRecommendations(gemId) {
         var url = TIMEGEM_API_BASE + '/api/artist-recommendations-v4/' + encodeURIComponent(gemId) + '?gem=venue';
         return fetch(url, { method: 'GET' })
-            .then(function (res) { return res.json(); })
-            .catch(function () { return null; });
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { ok: res.ok, status: res.status, data: data };
+                });
+            })
+            .catch(function (err) {
+                return { ok: false, status: 0, data: null, error: err };
+            });
     }
 
     // Calls your NEW Netlify proxy — Supabase key stays server-side
@@ -180,9 +217,14 @@ var TIMEGEM_API_BASE = 'https://mpt-api.netlify.app';
 
     function runTimegemFlow() {
         var gemId = getTimegemId();
-        if (!gemId) return;
+        if (!gemId) {
+            console.log(LOG_PREFIX, 'No venue ID configured (timegem queue, URL param, or localStorage)');
+            return;
+        }
 
-        fetchArtistRecommendations(gemId).then(function (apiData) {
+        fetchArtistRecommendations(gemId).then(function (result) {
+            logVenueStatus(gemId, result);
+            var apiData = result && result.ok ? result.data : null;
             if (!apiData) return;
             var bySlug = slugToRecommendation(apiData);
             var blocks = document.querySelectorAll('.wp_theatre_event');
