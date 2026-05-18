@@ -101,40 +101,20 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     // ─── API calls (all go through your Netlify API — no credentials in browser) ──
 
-    var LOG_PREFIX = '[Timegem Venue]';
+    var LOG_PREFIX = '[Timegem]';
 
-    function logVenueStatus(timegemId, venueId, result) {
-        if (!result || !result.ok) {
-            var apiError = result && result.data && result.data.error;
-            console.log(LOG_PREFIX, 'API connection: incorrect', {
-                timegem_id: timegemId,
-                venue_id: venueId,
-                status: result ? result.status : 0,
-                error: apiError || (result && result.error ? String(result.error) : 'Network or parse error')
-            });
-            console.log(LOG_PREFIX, 'Venue found: no');
-            return;
-        }
+    function fetchVenue(venueId) {
+        var url = TIMEGEM_API_BASE + '/api/venue/' + encodeURIComponent(venueId);
+        return fetch(url, { method: 'GET' })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .catch(function () { return null; });
+    }
 
-        var data = result.data;
-        var venueFound = !!(data && data.gem === 'venue' && data.profile && data.profile.id);
-        console.log(LOG_PREFIX, 'API connection: correct', {
-            timegem_id: timegemId,
-            venue_id: venueId,
-            status: result.status
-        });
-        if (venueFound) {
-            console.log(LOG_PREFIX, 'Venue found: yes', {
-                profileId: data.profile.id,
-                displayName: data.profile.display_name,
-                venueId: data.profile.venue_id,
-                recommendations: Array.isArray(data.recommendations) ? data.recommendations.length : 0
-            });
-        } else {
-            console.log(LOG_PREFIX, 'Venue found: no', {
-                reason: data && data.error ? data.error : 'No venue profile in API response'
-            });
-        }
+    function fetchVenueEvents(venueId) {
+        var url = TIMEGEM_API_BASE + '/api/venue/' + encodeURIComponent(venueId) + '/events';
+        return fetch(url, { method: 'GET' })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .catch(function () { return null; });
     }
 
     function fetchArtistRecommendations(timegemId, venueId) {
@@ -235,30 +215,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     // ─── Main flow ────────────────────────────────────────────────────────────
 
-    function runTimegemFlow(attempt) {
-        attempt = attempt || 0;
-        var venueId = getVenueIdFromQueue();
-        var timegemId = getTimegemId();
-
-        if (!venueId && attempt < 20) {
-            setTimeout(function () { runTimegemFlow(attempt + 1); }, 50);
-            return;
-        }
-
-        if (!venueId) {
-            console.log(LOG_PREFIX, 'No venue_id in tg config — cannot load venue', {
-                queueLength: getTimegemQueueItems().length
-            });
-            return;
-        }
-
-        if (!timegemId) {
-            console.log(LOG_PREFIX, 'No timegem_id (user) — recommendations skipped. Use ?timegem_id= or stored visit.');
-            return;
-        }
-
+    function applyRecommendations(timegemId, venueId) {
         fetchArtistRecommendations(timegemId, venueId).then(function (result) {
-            logVenueStatus(timegemId, venueId, result);
             var apiData = result && result.ok ? result.data : null;
             if (!apiData) return;
             var bySlug = slugToRecommendation(apiData);
@@ -275,6 +233,44 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 var pageSlug = getSlugFromCurrentPath();
                 if (pageSlug && bySlug[pageSlug]) prependMatchDetailsToDetails(bySlug[pageSlug]);
             }
+        });
+    }
+
+    function runTimegemFlow(attempt) {
+        attempt = attempt || 0;
+        var venueId = getVenueIdFromQueue();
+        var timegemId = getTimegemId();
+
+        if (!venueId && attempt < 20) {
+            setTimeout(function () { runTimegemFlow(attempt + 1); }, 50);
+            return;
+        }
+
+        if (!venueId) return;
+
+        Promise.all([
+            fetchVenue(venueId),
+            fetchVenueEvents(venueId)
+        ]).then(function (results) {
+            var venue = results[0];
+            var eventsPayload = results[1];
+
+            if (venue && venue.name) {
+                console.log(LOG_PREFIX, 'Venue is loaded: ' + venue.name);
+            } else if (eventsPayload && eventsPayload.venue && eventsPayload.venue.name) {
+                console.log(LOG_PREFIX, 'Venue is loaded: ' + eventsPayload.venue.name);
+            }
+
+            if (eventsPayload && Array.isArray(eventsPayload.events)) {
+                console.log(LOG_PREFIX, 'Events are loaded');
+            }
+
+            if (!timegemId) {
+                console.log(LOG_PREFIX, 'No personal Timegem ID found');
+                return;
+            }
+
+            applyRecommendations(timegemId, venueId);
         });
     }
 
