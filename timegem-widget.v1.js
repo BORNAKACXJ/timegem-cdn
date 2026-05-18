@@ -7,15 +7,30 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var agendaPath = '/agenda/';
     var TIMEGEM_STORAGE_KEY = 'timegem_ven_id';
 
-    function getVentureIdFromQueue() {
+    function getConfigIdFromCommand(cmd) {
+        if (!cmd || cmd[0] !== 'config') return null;
+        var id = cmd[1];
+        return typeof id === 'string' && id ? id : null;
+    }
+
+    /** Collect queue items from window.timegem (array) and/or timegem.q (widget stub). */
+    function getTimegemQueueItems() {
+        var items = [];
         try {
             var queue = window.timegem;
-            if (!Array.isArray(queue)) return null;
-            for (var i = 0; i < queue.length; i++) {
-                var cmd = queue[i];
-                if (Array.isArray(cmd) && cmd[0] === 'config' && typeof cmd[1] === 'string' && cmd[1]) {
-                    return cmd[1];
-                }
+            if (!queue) return items;
+            if (Array.isArray(queue)) items = items.concat(queue);
+            if (queue.q && Array.isArray(queue.q)) items = items.concat(queue.q);
+        } catch (e) {}
+        return items;
+    }
+
+    function getVentureIdFromQueue() {
+        try {
+            var items = getTimegemQueueItems();
+            for (var i = 0; i < items.length; i++) {
+                var id = getConfigIdFromCommand(items[i]);
+                if (id) return id;
             }
         } catch (e) {}
         return null;
@@ -32,7 +47,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function getTimegemId() {
         var fromQueue = getVentureIdFromQueue();
-        if (fromQueue) return fromQueue;
+        if (fromQueue) {
+            try { localStorage.setItem(TIMEGEM_STORAGE_KEY, fromQueue); } catch (e) {}
+            return fromQueue;
+        }
 
         var fromUrl = getTimegemIdFromUrl();
         if (fromUrl) {
@@ -215,10 +233,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     // ─── Main flow ────────────────────────────────────────────────────────────
 
-    function runTimegemFlow() {
+    function runTimegemFlow(attempt) {
+        attempt = attempt || 0;
         var gemId = getTimegemId();
+        if (!gemId && attempt < 20) {
+            setTimeout(function () { runTimegemFlow(attempt + 1); }, 50);
+            return;
+        }
         if (!gemId) {
-            console.log(LOG_PREFIX, 'No venue ID configured (timegem queue, URL param, or localStorage)');
+            console.log(LOG_PREFIX, 'No venue ID configured (timegem queue, URL param, or localStorage)', {
+                queueLength: getTimegemQueueItems().length,
+                timegemType: window.timegem ? typeof window.timegem : 'undefined'
+            });
             return;
         }
 
