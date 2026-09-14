@@ -126,6 +126,15 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
+    function isHomePage() {
+        try {
+            var path = (window.location.pathname || '').replace(/\/+$/, '');
+            return path === '';
+        } catch (e) {
+            return false;
+        }
+    }
+
     function getSlugFromCurrentPath() {
         try {
             var path = window.location.pathname || '';
@@ -744,27 +753,48 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
+    function insertBlockBeforeDiscoverCta(fill) {
+        var anchors = document.querySelectorAll(DISCOVER_CTA_SELECTOR);
+        Array.prototype.forEach.call(anchors, function (anchor) {
+            var prev = anchor.previousElementSibling;
+            if (prev && prev.classList.contains(BLOCK_CLASS)) return;
+
+            var block = document.createElement('section');
+            block.className = BLOCK_CLASS;
+            fill(block);
+            anchor.parentNode.insertBefore(block, anchor);
+        });
+    }
+
+    /** Home only: takes the place of the hidden .cta-discover. */
+    function renderHomeGemsBlock(hasId) {
+        if (!hasId || !isHomePage()) return;
+
+        insertBlockBeforeDiscoverCta(function (block) {
+            var title = document.createElement('h3');
+            title.className = BLOCK_CLASS + '__text';
+            title.textContent = 'These are yours gems for this month';
+            block.appendChild(title);
+
+            var body = document.createElement('p');
+            body.className = BLOCK_CLASS + '__body';
+            body.textContent = '[matches]';
+            block.appendChild(body);
+        });
+    }
+
     /**
-     * Renders our own block in the slot the theme gives .cta-discover. That CTA is
-     * hidden once we know the visitor, so this takes its place rather than sitting
-     * next to it. Placeholder copy for now.
+     * Agenda only: our own block in the slot the theme gives .cta-discover.
+     * That CTA is hidden once we know the visitor, so this takes its place.
      */
     function renderAgendaBlock(hasId) {
         if (!hasId || !isAgendaContext()) return;
 
-        var anchors = document.querySelectorAll(DISCOVER_CTA_SELECTOR);
-        Array.prototype.forEach.call(anchors, function (anchor) {
-            var prev = anchor.previousElementSibling;
-            if (prev && prev.classList.contains(BLOCK_CLASS)) return; // already rendered
-
-            var block = document.createElement('section');
-            block.className = BLOCK_CLASS;
-
-            // On a single event we wait for the recommendation; on the listing there
-            // is no single slug to match, so the per-event badges do the talking.
+        insertBlockBeforeDiscoverCta(function (block) {
+            // On a single event we wait for the recommendation; on the listing
+            // there is no single slug to match, so the per-event badges do the talking.
             if (getSlugFromCurrentPath()) {
                 if (SHOW_LOADING_STATES) {
-                    // Skeleton shaped like the finished block: headline, then chips.
                     block.setAttribute('data-match', 'loading');
                     var ghostLine = document.createElement('p');
                     ghostLine.className = BLOCK_CLASS + '__text';
@@ -795,8 +825,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 line.textContent = 'Your matches are marked in the list below.';
                 block.appendChild(line);
             }
-
-            anchor.parentNode.insertBefore(block, anchor);
         });
     }
 
@@ -997,6 +1025,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         clearTeaseIcons();
         var hasId = syncDiscoverCta();
         syncNavCtaLabel(hasId);
+        renderHomeGemsBlock(hasId);
         renderAgendaBlock(hasId);
         bindGemsCta();
 
@@ -1095,8 +1124,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             .timegem-ven-dialog-inner h2 {
                 margin: 0 0 12px;
-                font-size: 24px;
-                line-height: 1.1;
+                
                 color: greenyellow;
             }
             .timegem-ven-dialog-inner p {
@@ -1221,6 +1249,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 
                 text-transform: uppercase;
                
+            }
+            .timegem-ven-block__body {
+                margin: 8px 0 0;
+                font-size: 15px;
+                line-height: 1.5;
+                font-weight: 400;
+                text-transform: none;
             }
             .timegem-ven-block__symbol {
                 color: greenyellow;
