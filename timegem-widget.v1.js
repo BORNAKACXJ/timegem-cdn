@@ -6,6 +6,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     var agendaPath = '/agenda/';
     var TIMEGEM_USER_STORAGE_KEY = 'timegem_ven_id';
+    /** Shimmer placeholders while recommendations / profile load. Off for now. */
+    var SHOW_LOADING_STATES = false;
 
     /** event_slug -> event row, filled from whichever events call we made. */
     var eventsBySlug = {};
@@ -235,32 +237,88 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return map;
     }
 
-    function getMatchTypeSymbol(matchType) {
-        var diamond = '\u25C6';
-        var star = '\u2605';
-        if (!matchType) return '';
-        var t = String(matchType).toLowerCase();
-        if (t === 'none') return '';
-        if (t === 'direct') return star;
-        if (t === 'light') return diamond;
-        if (t === 'medium') return diamond + diamond;
-        if (t === 'heavy') return diamond + diamond + diamond;
-        return '';
+    // One bolt per level. Static markup, so insertAdjacentHTML is safe here.
+    var MATCH_ICON_SVG =
+        '<svg class="timegem-ven-icon" viewBox="0 0 373.36 767.12" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
+            '<polygon class="st0" points="115.63 11.26 14.93 374.46 137.83 375.06 39.03 706.06 351.13 269.36 213.93 267.76 354.93 11.26 115.63 11.26"/>' +
+            '<path class="st1" d="M354.93,11.26H115.63L14.93,374.36l122.9.6-98.8,331,312.1-436.7-137.2-1.6L354.93,11.26h0Z"/>' +
+        '</svg>';
+
+    var MATCH_ICON_COUNT = { light: 1, medium: 2, heavy: 3 };
+
+    /**
+     * The strength indicator as elements rather than text. Returns null when
+     * there is nothing to show. Build one per placement \u2014 a node cannot be
+     * appended to two blocks at once.
+     */
+    function buildMatchSymbol(matchType) {
+        var t = matchType ? String(matchType).toLowerCase() : '';
+        if (!t || t === 'none') return null;
+
+        var wrap = document.createElement('span');
+        wrap.className = 'timegem-ven-symbols is-' + t;
+
+        if (t === 'direct') {
+            wrap.textContent = '\u2605'; // a direct hit stays a star, not a count of bolts
+            return wrap;
+        }
+
+        var count = MATCH_ICON_COUNT[t] || 0;
+        if (!count) return null;
+        for (var i = 0; i < count; i++) wrap.insertAdjacentHTML('beforeend', MATCH_ICON_SVG);
+        return wrap;
+    }
+
+    /**
+     * The positioned ancestor a badge (real or skeleton) is pinned to.
+     * .tease-agenda is the card wrapper in the current theme and is already
+     * position:relative; .wp__theater is kept as a fallback for older markup.
+     */
+    function ensureBadgeContainer(block) {
+        var container = block.querySelector('.tease-agenda') ||
+                        block.querySelector('.wp__theater') ||
+                        block;
+        if (!container.style.position || container.style.position === 'static') {
+            container.style.position = 'relative';
+        }
+        return container;
+    }
+
+    /**
+     * A placeholder in each badge slot while the recommendations are in flight.
+     * Only shown when we know the visitor \u2014 without a timegem_id no badge is
+     * ever coming, so a skeleton would be a lie.
+     */
+    function renderBadgeSkeletons() {
+        var blocks = document.querySelectorAll('.wp_theatre_event');
+        Array.prototype.forEach.call(blocks, function (block) {
+            var container = ensureBadgeContainer(block);
+            if (container.querySelector('.' + SKELETON_BADGE_CLASS)) return;
+
+            var ghost = document.createElement('div');
+            ghost.className = 'timegem-ven-match-details ' + SKELETON_BADGE_CLASS + ' timegem-ven-skeleton';
+            ghost.setAttribute('aria-hidden', 'true');
+            container.appendChild(ghost);
+        });
+    }
+
+    function clearBadgeSkeletons() {
+        var ghosts = document.querySelectorAll('.' + SKELETON_BADGE_CLASS);
+        Array.prototype.forEach.call(ghosts, function (g) {
+            if (g.parentNode) g.parentNode.removeChild(g);
+        });
     }
 
     function appendMatchDetails(block, recommendation) {
         var matchType = recommendation && recommendation.matchType;
-        var symbol = getMatchTypeSymbol(matchType);
-        if (matchType === 'none' || !symbol) return;
+        var symbol = buildMatchSymbol(matchType);
+        if (!symbol) return;
 
-        var container = block.querySelector('.wp__theater') || block;
-        if (!container.style.position || container.style.position === 'static') {
-            container.style.position = 'relative';
-        }
+        var container = ensureBadgeContainer(block);
 
         var div = document.createElement('div');
         div.className = 'timegem-ven-match-details';
-        div.textContent = symbol;
+        div.appendChild(symbol);
         container.appendChild(div);
     }
 
@@ -288,6 +346,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             : null;
 
         fetchArtistRecommendations(timegemId, venueId, scopeToEvent).then(function (result) {
+            clearBadgeSkeletons();
+
             var apiData = result && result.ok ? result.data : null;
             if (!apiData) {
                 updateAgendaBlock(null, 'unavailable');
@@ -393,10 +453,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var ORIGINAL_LABEL_ATTR = 'data-timegem-label';
     var BLOCK_CLASS = 'timegem-ven-block';
     var MATCH_COPY = {
-        direct: 'This one is yours',
-        heavy: 'This is a strong match',
-        medium: 'This could be for you',
-        light: 'There is a light match here',
+        direct: 'This is one of your favorite artists',
+        heavy: 'RECOMMENDED BASED ON RELATED ARTISTS',
+        medium: 'RECOMMENDED BASED ON RELATED ARTISTS',
+        light: 'RECOMMENDED BASED ON GENRE',
         none: 'This is not a match'
     };
     var CONNECT_PORTAL_URL = 'https://my.personaltimetable.com/';
@@ -549,9 +609,25 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
 
             title.textContent = 'Your profile';
-            intro.className = 'timegem-ven-fineprint';
-            intro.textContent = 'Loading your top artists and tracks\u2026';
             body.appendChild(title);
+
+            if (SHOW_LOADING_STATES) {
+                var ghostRows = document.createElement('ul');
+                ghostRows.className = 'timegem-ven-list';
+                for (var i = 0; i < 4; i++) {
+                    var row = document.createElement('li');
+                    var avatar = document.createElement('span');
+                    avatar.className = 'timegem-ven-skeleton is-avatar';
+                    avatar.setAttribute('aria-hidden', 'true');
+                    row.appendChild(avatar);
+                    row.appendChild(skeletonBar((55 + i * 8) + '%', '14px'));
+                    ghostRows.appendChild(row);
+                }
+                body.appendChild(ghostRows);
+            }
+
+            // Kept so the failure path below has something to write into.
+            intro.className = 'timegem-ven-fineprint';
             body.appendChild(intro);
 
             fetchVenueProfile(timegemId, getVenueIdFromQueue()).then(function (data) {
@@ -648,6 +724,16 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return hasId;
     }
 
+    /** A single shimmering placeholder bar. */
+    function skeletonBar(width, height) {
+        var bar = document.createElement('span');
+        bar.className = 'timegem-ven-skeleton is-bar';
+        bar.style.width = width;
+        bar.style.height = height;
+        bar.setAttribute('aria-hidden', 'true');
+        return bar;
+    }
+
     /** True on the agenda listing and on any single /agenda/<slug> event page. */
     function isAgendaContext() {
         try {
@@ -676,12 +762,39 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
             // On a single event we wait for the recommendation; on the listing there
             // is no single slug to match, so the per-event badges do the talking.
-            var line = document.createElement('p');
-            line.className = BLOCK_CLASS + '__text';
-            line.textContent = getSlugFromCurrentPath()
-                ? 'Checking your match\u2026'
-                : 'Your matches are marked in the list below.';
-            block.appendChild(line);
+            if (getSlugFromCurrentPath()) {
+                if (SHOW_LOADING_STATES) {
+                    // Skeleton shaped like the finished block: headline, then chips.
+                    block.setAttribute('data-match', 'loading');
+                    var ghostLine = document.createElement('p');
+                    ghostLine.className = BLOCK_CLASS + '__text';
+                    ghostLine.appendChild(skeletonBar('60%', '22px'));
+                    block.appendChild(ghostLine);
+
+                    var ghostCaption = document.createElement('p');
+                    ghostCaption.className = BLOCK_CLASS + '__caption';
+                    ghostCaption.appendChild(skeletonBar('30%', '12px'));
+                    block.appendChild(ghostCaption);
+
+                    var ghostChips = document.createElement('div');
+                    ghostChips.className = BLOCK_CLASS + '__matches is-artists';
+                    ['92px', '118px', '76px'].forEach(function (w) {
+                        var chip = document.createElement('span');
+                        chip.className = BLOCK_CLASS + '__match timegem-ven-skeleton is-chip';
+                        chip.style.width = w;
+                        chip.setAttribute('aria-hidden', 'true');
+                        ghostChips.appendChild(chip);
+                    });
+                    block.appendChild(ghostChips);
+                } else {
+                    block.hidden = true;
+                }
+            } else {
+                var line = document.createElement('p');
+                line.className = BLOCK_CLASS + '__text';
+                line.textContent = 'Your matches are marked in the list below.';
+                block.appendChild(line);
+            }
 
             anchor.parentNode.insertBefore(block, anchor);
         });
@@ -693,6 +806,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * means the same thing as matchType 'none'.
      */
     var MATCH_ITEM_LIMIT = 6;
+    var SKELETON_BADGE_CLASS = 'timegem-ven-badge-loading';
+    /** Never leave a skeleton up forever if a request hangs. */
+    var SKELETON_TIMEOUT_MS = 12000;
 
     /**
      * The "why" behind a match, following the timetable's split: genre matches
@@ -759,27 +875,27 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             ? String(recommendation.matchType).toLowerCase()
             : 'none';
         var headline = MATCH_COPY[matchType] || MATCH_COPY.none;
-        var symbol = getMatchTypeSymbol(matchType);
+        var showSymbol = state !== 'unavailable';
         var details = (recommendation && recommendation.matchDetails) || [];
 
         if (state === 'unavailable') {
             headline = 'We could not check this one right now';
             matchType = 'unknown';
-            symbol = '';
             details = [];
         }
 
         Array.prototype.forEach.call(blocks, function (block) {
+            block.hidden = false;
             block.setAttribute('data-match', matchType);
             block.innerHTML = '';
 
             var line = document.createElement('p');
             line.className = BLOCK_CLASS + '__text';
 
-            if (symbol) {
-                var sym = document.createElement('span');
-                sym.className = BLOCK_CLASS + '__symbol';
-                sym.textContent = symbol;
+            // Built per block: one node cannot live in two places.
+            var sym = showSymbol ? buildMatchSymbol(matchType) : null;
+            if (sym) {
+                sym.className += ' ' + BLOCK_CLASS + '__symbol';
                 line.appendChild(sym);
             }
             line.appendChild(document.createTextNode(headline));
@@ -883,6 +999,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         syncNavCtaLabel(hasId);
         renderAgendaBlock(hasId);
         bindGemsCta();
+
+        if (hasId && SHOW_LOADING_STATES) {
+            renderBadgeSkeletons();
+            // If the venue or recommendations request never resolves, the
+            // placeholders still go away rather than pulsing forever.
+            setTimeout(clearBadgeSkeletons, SKELETON_TIMEOUT_MS);
+        }
+
         runTimegemFlow();
     }
 
@@ -890,7 +1014,314 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (document.getElementById('timegem-ven-styles')) return;
         var style = document.createElement('style');
         style.id = 'timegem-ven-styles';
-        style.textContent = '.wpt_listing .wp_theatre_event{position:relative;}.timegem-ven-match-details{position:absolute;top:16px;right:16px;background:#000;color:greenyellow;padding:4px 10px 9px 10px;border-radius:0;font-size:24px;line-height:1;}.timegem-ven-why{background:black;color:white;padding:10px 14px;margin-bottom:12px;}.timegem-ven-dialog{border:none;padding:0;background:transparent;max-width:520px;width:calc(100% - 32px);}.timegem-ven-dialog::backdrop{background:rgba(0,0,0,0.6);}.timegem-ven-dialog-inner{background:#000;color:#fff;padding:28px 28px 24px;position:relative;}.timegem-ven-dialog-inner h2{margin:0 0 12px;font-size:24px;line-height:1.1;color:greenyellow;}.timegem-ven-dialog-inner p{margin:0 0 8px;font-size:15px;line-height:1.5;}.timegem-ven-dialog-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#fff;font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;}.timegem-ven-dialog-close:hover{color:greenyellow;}.timegem-ven-dialog-inner a{color:greenyellow;}.timegem-ven-connect{display:inline-block;background:greenyellow;color:#000 !important;padding:14px 22px;margin:6px 0 16px;text-decoration:none;font-weight:800;text-transform:uppercase;letter-spacing:.02em;}.timegem-ven-connect:hover{background:#fff;}.timegem-ven-fineprint{font-size:12px;line-height:1.5;opacity:.7;margin:0;}.timegem-ven-dialog-body{max-height:70vh;overflow-y:auto;}.timegem-ven-profile-head{display:flex;align-items:center;gap:14px;margin-bottom:10px;}.timegem-ven-profile-head h2{margin:0;}.timegem-ven-avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none;}.timegem-ven-genres{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:greenyellow;}.timegem-ven-subhead{margin:20px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:greenyellow;}.timegem-ven-list{list-style:none;margin:0;padding:0;}.timegem-ven-list li{display:flex;align-items:center;gap:12px;padding:6px 0;}.timegem-ven-list img{width:40px;height:40px;object-fit:cover;flex:none;}.timegem-ven-list-primary{display:block;font-weight:700;font-size:14px;line-height:1.3;}.timegem-ven-list-secondary{display:block;font-size:12px;opacity:.65;line-height:1.3;}.cta-discover{cursor:pointer;}.timegem-ven-block{background:#000;color:#fff;padding:28px 32px;margin:24px 0;border-left:6px solid greenyellow;}.timegem-ven-block__text{margin:0;font-size:22px;line-height:1.15;font-weight:800;text-transform:uppercase;letter-spacing:.01em;}.timegem-ven-block__symbol{color:greenyellow;margin-right:12px;}.timegem-ven-block__reasons{margin:12px 0 0;padding:0 0 0 18px;font-size:14px;line-height:1.5;}.timegem-ven-block__reasons li{margin:2px 0;}.timegem-ven-block__caption{margin:16px 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.65;}.timegem-ven-block__matches{display:flex;flex-wrap:wrap;gap:8px;}.timegem-ven-block__match{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);padding:5px 14px 5px 5px;border-radius:999px;font-size:13px;font-weight:700;line-height:1.2;}.timegem-ven-block__matches.is-genres .timegem-ven-block__match{padding:6px 14px;text-transform:uppercase;letter-spacing:.04em;}.timegem-ven-block__match img{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none;display:block;}.timegem-ven-block__match.is-more{opacity:.6;padding:6px 14px;}html[data-timegem-has-id] .cta-discover{display:none !important;}';
+        style.textContent = `
+            .wpt_listing .wp_theatre_event {
+                position: relative;
+            }
+            .timegem-ven-match-details {
+                position: absolute;
+                top: 0px;
+                right: 16px;
+                background: #000;
+                color: #e5fa4d;
+                padding: 12px 12px 0px 12px;
+                border-radius: 0;
+                font-size: 24px;
+                line-height: 1;
+                display: inline-flex;
+                align-items: center;
+                z-index: 2;
+                pointer-events: none;
+            }
+
+            .timegem-ven-match-details:after {
+        content: "";
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
+    background-color:black;
+    width: 100%;
+    height: 24px;
+    transition: none;
+    position: absolute;
+    bottom: calc(.5px - 24px);
+    left: 0;
+}
+
+            .timegem-ven-symbols {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                line-height: 1;
+            }
+
+            .wp_theatre_event:hover .timegem-ven-match-details {
+                background:red;
+            }
+
+            .wp_theatre_event:hover .timegem-ven-match-details:after {
+                background-color:red;
+            }
+
+            .timegem-ven-icon {
+                width: .62em;
+                height: 1.28em;
+                display: block;
+                flex: none;
+            }
+            .timegem-ven-icon .st0,
+            .timegem-ven-icon .st1 {
+                fill: currentColor;
+            }
+            .timegem-ven-why {
+                background: black;
+                color: white;
+                padding: 10px 14px;
+                margin-bottom: 12px;
+            }
+            .timegem-ven-dialog {
+                border: none;
+                padding: 0;
+                background: transparent;
+                max-width: 520px;
+                width: calc(100% - 32px);
+            }
+            .timegem-ven-dialog::backdrop {
+                background: rgba(0, 0, 0, 0.6);
+            }
+            .timegem-ven-dialog-inner {
+                background: #000;
+                color: #fff;
+                padding: 28px 28px 24px;
+                position: relative;
+            }
+            .timegem-ven-dialog-inner h2 {
+                margin: 0 0 12px;
+                font-size: 24px;
+                line-height: 1.1;
+                color: greenyellow;
+            }
+            .timegem-ven-dialog-inner p {
+                margin: 0 0 8px;
+                font-size: 15px;
+                line-height: 1.5;
+            }
+            .timegem-ven-dialog-close {
+                position: absolute;
+                top: 8px;
+                right: 10px;
+                background: none;
+                border: none;
+                color: #fff;
+                font-size: 26px;
+                line-height: 1;
+                cursor: pointer;
+                padding: 4px 8px;
+            }
+            .timegem-ven-dialog-close:hover {
+                color: greenyellow;
+            }
+            .timegem-ven-dialog-inner a {
+                color: greenyellow;
+            }
+            .timegem-ven-connect {
+                display: inline-block;
+                background: greenyellow;
+                color: #000 !important;
+                padding: 14px 22px;
+                margin: 6px 0 16px;
+                text-decoration: none;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .02em;
+            }
+            .timegem-ven-connect:hover {
+                background: #fff;
+            }
+            .timegem-ven-fineprint {
+                font-size: 12px;
+                line-height: 1.5;
+                opacity: .7;
+                margin: 0;
+            }
+            .timegem-ven-dialog-body {
+                max-height: 70vh;
+                overflow-y: auto;
+            }
+            .timegem-ven-profile-head {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 10px;
+            }
+            .timegem-ven-profile-head h2 {
+                margin: 0;
+            }
+            .timegem-ven-avatar {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                object-fit: cover;
+                flex: none;
+            }
+            .timegem-ven-genres {
+                margin: 0 0 8px;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                color: greenyellow;
+            }
+            .timegem-ven-subhead {
+                margin: 20px 0 8px;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                color: greenyellow;
+            }
+            .timegem-ven-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .timegem-ven-list li {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 6px 0;
+            }
+            .timegem-ven-list img {
+                width: 40px;
+                height: 40px;
+                object-fit: cover;
+                flex: none;
+            }
+            .timegem-ven-list-primary {
+                display: block;
+                font-weight: 700;
+                font-size: 14px;
+                line-height: 1.3;
+            }
+            .timegem-ven-list-secondary {
+                display: block;
+                font-size: 12px;
+                opacity: .65;
+                line-height: 1.3;
+            }
+            .cta-discover {
+                cursor: pointer;
+            }
+            .timegem-ven-block {
+                background: white;
+                color: black;
+                padding: 28px 32px;
+                margin: 0px 0;
+                
+            }
+            .timegem-ven-block__text {
+                margin: 0;
+                font-size: 22px;
+                line-height: 1.15;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .01em;
+            }
+            .timegem-ven-block__symbol {
+                color: greenyellow;
+                margin-right: 14px;
+                vertical-align: -0.18em;
+            }
+            .timegem-ven-block__reasons {
+                margin: 12px 0 0;
+                padding: 0 0 0 18px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            .timegem-ven-block__reasons li {
+                margin: 2px 0;
+            }
+            .timegem-ven-block__caption {
+                margin: 16px 0 10px;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                opacity: .65;
+            }
+            .timegem-ven-block__matches {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .timegem-ven-block__match {
+                display: inline-flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    flex-direction: column;
+    justify-content: flex-start;
+    width: 80px;
+            }
+            .timegem-ven-block__matches.is-genres .timegem-ven-block__match {
+                padding: 6px 14px;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+            }
+            .timegem-ven-block__match img {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                object-fit: cover;
+                flex: none;
+                display: block;
+            }
+            .timegem-ven-block__match.is-more {
+                opacity: .6;
+                padding: 6px 14px;
+            }
+            @keyframes timegem-ven-shimmer {
+                0% { background-position: -200px 0; }
+                100% { background-position: calc(200px + 100%) 0; }
+            }
+            .timegem-ven-skeleton {
+                display: inline-block;
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.13);
+                background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0) 100%);
+                background-repeat: no-repeat;
+                background-size: 200px 100%;
+                animation: timegem-ven-shimmer 1.2s ease-in-out infinite;
+            }
+            .timegem-ven-skeleton.is-bar {
+                vertical-align: middle;
+            }
+            .timegem-ven-skeleton.is-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                flex: none;
+            }
+            .timegem-ven-skeleton.is-chip {
+                height: 38px;
+                border-radius: 999px;
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+            .timegem-ven-badge-loading {
+                min-width: 54px;
+                height: 33px;
+                background-color: rgba(0, 0, 0, 0.55);
+                background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(173, 255, 47, 0.28) 50%, rgba(255, 255, 255, 0) 100%);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .timegem-ven-skeleton {
+                    animation: none;
+                }
+            }
+            html[data-timegem-has-id] .cta-discover {
+                display: none !important;
+            }
+        `;
         document.head.appendChild(style);
     }
 
