@@ -829,7 +829,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var caption = document.createElement('p');
         caption.className = BLOCK_CLASS + '__caption';
         caption.textContent = isGenre ? 'Matching genres' : 'Because you listen to';
-        fragment.appendChild(caption);
+        //fragment.appendChild(caption);
 
         var list = document.createElement('div');
         list.className = BLOCK_CLASS + '__matches ' + (isGenre ? 'is-genres' : 'is-artists');
@@ -889,17 +889,17 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             block.setAttribute('data-match', matchType);
             block.innerHTML = '';
 
-            var line = document.createElement('p');
+            var line = document.createElement('h3');
             line.className = BLOCK_CLASS + '__text';
+            line.appendChild(document.createTextNode(headline));
+            block.appendChild(line);
 
             // Built per block: one node cannot live in two places.
             var sym = showSymbol ? buildMatchSymbol(matchType) : null;
             if (sym) {
                 sym.className += ' ' + BLOCK_CLASS + '__symbol';
-                line.appendChild(sym);
+                block.appendChild(sym);
             }
-            line.appendChild(document.createTextNode(headline));
-            block.appendChild(line);
 
             var matchDetailNodes = state === 'unavailable' ? null : buildMatchDetails(recommendation);
 
@@ -1213,19 +1213,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 color: black;
                 padding: 28px 32px;
                 margin: 0px 0;
+                border-top: 8px solid #e5fa4d;
                 
             }
             .timegem-ven-block__text {
                 margin: 0;
-                font-size: 22px;
-                line-height: 1.15;
-                font-weight: 800;
+                
                 text-transform: uppercase;
-                letter-spacing: .01em;
+               
             }
             .timegem-ven-block__symbol {
                 color: greenyellow;
-                margin-right: 14px;
+                margin: 8px 0 0;
                 vertical-align: -0.18em;
             }
             .timegem-ven-block__reasons {
@@ -1248,11 +1247,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
+                margin-top: 24px;
             }
             .timegem-ven-block__match {
                 display: inline-flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 8px;
     background: none;
     padding: 0;
     border-radius: 0;
@@ -1269,9 +1269,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 letter-spacing: .04em;
             }
             .timegem-ven-block__match img {
-                width: 28px;
-                height: 28px;
-                border-radius: 50%;
+                width: 64px;
+                height: 64px;
+                border-radius: 0%;
                 object-fit: cover;
                 flex: none;
                 display: block;
