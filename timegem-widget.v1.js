@@ -564,7 +564,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
 
         var name = document.createElement('h2');
-        name.textContent = profile.display_name || 'Your profile';
+        name.textContent = 'Jouw profiel';
         head.appendChild(name);
         body.appendChild(head);
 
