@@ -360,6 +360,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var apiData = result && result.ok ? result.data : null;
             if (!apiData) {
                 updateAgendaBlock(null, 'unavailable');
+                renderHomeGemsMessage('We could not load your gems right now.');
                 return;
             }
             var bySlug = slugToRecommendation(apiData);
@@ -372,6 +373,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 var rec = bySlug[slug];
                 if (rec) appendMatchDetails(block, rec);
             });
+            if (isHomePage()) renderHomeGems(bySlug);
+
             if (isAgendaPage()) {
                 if (pageSlug) {
                     updateAgendaBlock(bySlug[pageSlug] || null, 'ok');
@@ -546,6 +549,31 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         body.appendChild(list);
     }
 
+    /**
+     * Forgets the visitor on this device. Their Spotify data stays in
+     * spotify_profiles_ven — reconnecting brings the same id back.
+     *
+     * Reloading afterwards is deliberate: badges, the gems block and the nav
+     * label are all already rendered, and a reload resets every one of them
+     * without us having to unpick each by hand.
+     */
+    function disconnectTimegem() {
+        try { localStorage.removeItem(TIMEGEM_USER_STORAGE_KEY); } catch (e) {}
+        cacheClear();
+
+        try {
+            var here = new URL(window.location.href);
+            if (here.searchParams.has('timegem_id')) {
+                // Otherwise the id in the URL is read straight back on reload.
+                here.searchParams.delete('timegem_id');
+                window.location.replace(here.toString());
+                return;
+            }
+        } catch (e) {}
+
+        window.location.reload();
+    }
+
     /** textContent everywhere — artist and track names come from Spotify, not from us. */
     function renderProfile(body, data) {
         body.innerHTML = '';
@@ -591,6 +619,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 secondary: t.artist_name
             };
         }));
+
+        var footer = document.createElement('div');
+        footer.className = 'timegem-ven-profile-foot';
+
+        var disconnect = document.createElement('button');
+        disconnect.type = 'button';
+        disconnect.className = 'timegem-ven-disconnect';
+        disconnect.textContent = DISCONNECT_LABEL;
+        disconnect.addEventListener('click', disconnectTimegem);
+        footer.appendChild(disconnect);
+
+        body.appendChild(footer);
     }
 
     /** Dialog contents depend on whether we already know the visitor. */
@@ -766,6 +806,223 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
     }
 
+    var GEMS_BODY_ATTR = 'data-timegem-gems';
+    var HOME_GEMS_MONTHS = 12;
+    var gemsRenderId = 0;
+    var TICKETS_LABEL = 'Koop tickets';
+    var DISCONNECT_LABEL = 'Disconnect';
+
+    /** Month names follow the page's own language rather than the browser's. */
+    function pageLocale() {
+        try { return document.documentElement.lang || undefined; } catch (e) { return undefined; }
+    }
+
+    /**
+     * Matched events still to come, oldest first.
+     * The recommendation carries the match, eventsBySlug carries the date \u2014 the
+     * join is why this needs no extra request.
+     */
+    function collectUpcomingGems(bySlug) {
+        var startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        var gems = [];
+        Object.keys(bySlug || {}).forEach(function (slug) {
+            var rec = bySlug[slug];
+            if (!rec || !rec.matchType || String(rec.matchType).toLowerCase() === 'none') return;
+
+            var ev = eventsBySlug[slug];
+            if (!ev || !ev.event_date) return; // nothing to group it under
+
+            var date = new Date(ev.event_date);
+            if (isNaN(date.getTime()) || date < startOfToday) return;
+
+            gems.push({ slug: slug, rec: rec, event: ev, date: date });
+        });
+
+        gems.sort(function (a, b) { return a.date - b.date; });
+        return gems;
+    }
+
+    function groupGemsByMonth(gems) {
+        var months = [];
+        var seen = {};
+        gems.forEach(function (gem) {
+            var key = gem.date.getFullYear() + '-' + gem.date.getMonth();
+            if (!seen[key]) {
+                seen[key] = { date: gem.date, gems: [] };
+                months.push(seen[key]);
+            }
+            seen[key].gems.push(gem);
+        });
+        return months;
+    }
+
+    function homeGemsBody() {
+        return document.querySelector('.' + BLOCK_CLASS + ' [' + GEMS_BODY_ATTR + ']');
+    }
+
+    function renderHomeGemsMessage(text) {
+        var body = homeGemsBody();
+        if (!body) return;
+        body.innerHTML = '';
+        var line = document.createElement('p');
+        line.className = BLOCK_CLASS + '__empty';
+        line.textContent = text;
+        body.appendChild(line);
+    }
+
+    function buildGemList(month, locale) {
+        var list = document.createElement('ul');
+        list.className = 'timegem-ven-month__list';
+
+        month.gems.forEach(function (gem) {
+            var item = document.createElement('li');
+            item.className = 'timegem-ven-gem';
+            item.setAttribute('data-match', String(gem.rec.matchType).toLowerCase());
+
+            var day = document.createElement('span');
+            day.className = 'timegem-ven-gem__date';
+            day.textContent = gem.date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+            item.appendChild(day);
+
+            var symbol = buildMatchSymbol(gem.rec.matchType);
+            if (symbol) item.appendChild(symbol);
+
+            var eventUrl = agendaPath + gem.slug + '/';
+
+            var link = document.createElement('a');
+            link.className = 'timegem-ven-gem__name';
+            link.href = eventUrl;
+            link.textContent = gem.event.event_name || gem.slug; // API copy, never innerHTML
+            item.appendChild(link);
+
+            var tickets = document.createElement('a');
+            tickets.className = 'timegem-ven-gem__tickets';
+            tickets.href = eventUrl;
+            tickets.textContent = TICKETS_LABEL;
+            item.appendChild(tickets);
+
+            list.appendChild(item);
+        });
+
+        return list;
+    }
+
+    /**
+     * Short tab label. The year is only added when the month falls outside the
+     * current one, so "jan '27" cannot be mistaken for this January.
+     */
+    function monthTabLabel(date, locale) {
+        var label = date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '');
+        var thisYear = new Date().getFullYear();
+        if (date.getFullYear() !== thisYear) {
+            label += " '" + String(date.getFullYear()).slice(-2);
+        }
+        return label;
+    }
+
+    /** Fills the home block with the visitor's upcoming matches, by month. */
+    function renderHomeGems(bySlug) {
+        var body = homeGemsBody();
+        if (!body) return;
+
+        var months = groupGemsByMonth(collectUpcomingGems(bySlug));
+        if (!months.length) {
+            renderHomeGemsMessage('No matches coming up yet \u2014 check back when new shows go on sale.');
+            return;
+        }
+
+        body.innerHTML = '';
+        var locale = pageLocale();
+        var shown = months.slice(0, HOME_GEMS_MONTHS);
+
+        var tablist = document.createElement('div');
+        tablist.className = 'timegem-ven-tabs';
+        tablist.setAttribute('role', 'tablist');
+        tablist.setAttribute('aria-label', 'Months with matches');
+
+        var panelWrap = document.createElement('div');
+        panelWrap.className = 'timegem-ven-panels';
+
+        var tabs = [];
+        var panels = [];
+        // Unique per render so repeated renders cannot collide on ids.
+        var uid = 'timegem-ven-m' + (++gemsRenderId) + '-';
+
+        function selectMonth(index) {
+            tabs.forEach(function (tab, i) {
+                var active = i === index;
+                tab.classList.toggle('is-active', active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+                tab.tabIndex = active ? 0 : -1;  // one stop for the whole tablist
+                panels[i].hidden = !active;
+            });
+        }
+
+        shown.forEach(function (month, i) {
+            var id = uid + i;
+
+            var tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'timegem-ven-tab';
+            tab.id = id + '-tab';
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', id);
+
+            var label = document.createElement('span');
+            label.textContent = monthTabLabel(month.date, locale);
+            tab.appendChild(label);
+
+            var count = document.createElement('span');
+            count.className = 'timegem-ven-tab__count';
+            count.textContent = month.gems.length;
+            tab.appendChild(count);
+
+            tab.addEventListener('click', function () { selectMonth(i); });
+            tab.addEventListener('keydown', function (e) {
+                var next = null;
+                if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = tabs.length - 1;
+                if (next === null) return;
+                e.preventDefault();
+                selectMonth(next);
+                tabs[next].focus();
+            });
+
+            var panel = document.createElement('div');
+            panel.className = 'timegem-ven-panel';
+            panel.id = id;
+            panel.setAttribute('role', 'tabpanel');
+            panel.setAttribute('aria-labelledby', id + '-tab');
+
+            var name = document.createElement('h4');
+            name.className = 'timegem-ven-month__name';
+            name.textContent = month.date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+            panel.appendChild(name);
+            panel.appendChild(buildGemList(month, locale));
+
+            tabs.push(tab);
+            panels.push(panel);
+            tablist.appendChild(tab);
+            panelWrap.appendChild(panel);
+        });
+
+        body.appendChild(tablist);
+        body.appendChild(panelWrap);
+        selectMonth(0); // nearest month first
+
+        var rest = months.length - shown.length;
+        if (rest > 0) {
+            var more = document.createElement('p');
+            more.className = BLOCK_CLASS + '__caption';
+            more.textContent = '+' + rest + ' more month' + (rest === 1 ? '' : 's') + ' with matches';
+            body.appendChild(more);
+        }
+    }
+
     /** Home only: takes the place of the hidden .cta-discover. */
     function renderHomeGemsBlock(hasId) {
         if (!hasId || !isHomePage()) return;
@@ -776,9 +1033,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             title.textContent = 'These are yours gems for this month';
             block.appendChild(title);
 
-            var body = document.createElement('p');
+            var body = document.createElement('div');
             body.className = BLOCK_CLASS + '__body';
-            body.textContent = '[matches]';
+            body.setAttribute(GEMS_BODY_ATTR, '');
             block.appendChild(body);
         });
     }
@@ -910,6 +1167,17 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             headline = 'We could not check this one right now';
             matchType = 'unknown';
             details = [];
+        }
+
+        // Nothing matched: say nothing at all rather than filling the page with
+        // a block that only reports an absence. It starts hidden, so this just
+        // leaves it that way.
+        if (state !== 'unavailable' && matchType === 'none') {
+            Array.prototype.forEach.call(blocks, function (block) {
+                block.hidden = true;
+                block.innerHTML = '';
+            });
+            return;
         }
 
         Array.prototype.forEach.call(blocks, function (block) {
@@ -1227,6 +1495,33 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 font-size: 14px;
                 line-height: 1.3;
             }
+            .timegem-ven-profile-foot {
+                margin-top: 22px;
+                padding-top: 16px;
+                border-top: 1px solid rgba(255, 255, 255, .15);
+            }
+            .timegem-ven-disconnect {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                border: 1px solid rgba(255, 255, 255, .35);
+                border-radius: 999px;
+                padding: 9px 16px;
+                cursor: pointer;
+            }
+            .timegem-ven-disconnect:hover,
+            .timegem-ven-disconnect:focus-visible {
+                background: #fff;
+                color: #000;
+                border-color: #fff;
+            }
             .timegem-ven-list-secondary {
                 display: block;
                 font-size: 12px;
@@ -1270,6 +1565,136 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             .timegem-ven-block__reasons li {
                 margin: 2px 0;
+            }
+            .timegem-ven-block__empty {
+                margin: 8px 0 0;
+                font-size: 15px;
+                line-height: 1.5;
+                text-transform: none;
+            }
+            .timegem-ven-tabs {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin: 16px 0 4px;
+            }
+            .timegem-ven-tab {
+                -webkit-appearance: none;
+                appearance: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                border: 1px solid rgba(0, 0, 0, .18);
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                padding: 8px 13px;
+                border-radius: 999px;
+                cursor: pointer;
+            }
+            .timegem-ven-tab:hover {
+                border-color: rgba(0, 0, 0, .45);
+            }
+            .timegem-ven-tab.is-active {
+                background: #000;
+                color: #fff;
+                border-color: #000;
+            }
+            .timegem-ven-tab__count {
+                font-size: 11px;
+                font-weight: 700;
+                opacity: .55;
+            }
+            .timegem-ven-tab.is-active .timegem-ven-tab__count {
+                opacity: .75;
+            }
+            .timegem-ven-tab:focus-visible {
+                outline: 2px solid #000;
+                outline-offset: 2px;
+            }
+            .timegem-ven-panel[hidden] {
+                display: none;
+            }
+            .timegem-ven-month {
+                margin-top: 20px;
+            }
+            .timegem-ven-month:first-child {
+                margin-top: 10px;
+            }
+            .timegem-ven-month__name {
+                margin: 0 0 6px;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: .08em;
+                opacity: .55;
+            }
+            .timegem-ven-month__list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .timegem-ven-gem {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 12px;
+                padding: 8px 0;
+                border-top: 1px solid rgba(0, 0, 0, .12);
+            }
+            .timegem-ven-gem:first-child {
+                border-top: 0;
+            }
+            .timegem-ven-gem__date {
+                flex: none;
+                min-width: 64px;
+                font-size: 13px;
+                font-weight: 700;
+                text-transform: uppercase;
+                opacity: .65;
+            }
+            .timegem-ven-gem .timegem-ven-symbols {
+                flex: none;
+                font-size: 17px;
+            }
+            .timegem-ven-gem__name {
+                font-weight: 800;
+                text-transform: uppercase;
+                text-decoration: none;
+                color: inherit;
+                line-height: 1.2;
+            }
+            .timegem-ven-gem__name:hover {
+                text-decoration: underline;
+            }
+            .timegem-ven-gem__tickets {
+                margin-left: auto;
+                flex: none;
+                background: #ff7b00;
+                
+                padding: 7px 14px;
+                font-size: 12px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                text-decoration: none;
+                color: inherit;
+                white-space: nowrap;
+            }
+            .timegem-ven-gem__tickets:hover,
+            .timegem-ven-gem__tickets:focus-visible {
+                background: red;
+                color: #fff;
+                
+            }
+            .timegem-ven-block[hidden] {
+                display: none;
             }
             .timegem-ven-block__caption {
                 margin: 16px 0 10px;
