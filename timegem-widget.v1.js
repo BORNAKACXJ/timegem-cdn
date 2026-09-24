@@ -135,6 +135,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
+    /** /myrotown is a 404 in WordPress. The overlay below is the page. */
+    var PROFILE_PATH = '/myrotown';
+
+    function isProfilePage() {
+        try {
+            var path = (window.location.pathname || '').replace(/\/+$/, '') || '/';
+            return path === PROFILE_PATH;
+        } catch (e) {
+            return false;
+        }
+    }
+
     function getSlugFromCurrentPath() {
         try {
             var path = window.location.pathname || '';
@@ -226,6 +238,32 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return fetch(url, { method: 'GET' })
             .then(function (res) { return res.ok ? res.json() : null; })
             .catch(function () { return null; });
+    }
+
+    function fetchVenueLikes(timegemId) {
+        var url = TIMEGEM_API_BASE + '/api/venue-like/' + encodeURIComponent(timegemId);
+        return fetch(url, { method: 'GET' })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (data) { return data && Array.isArray(data.likes) ? data.likes : null; })
+            .catch(function () { return null; });
+    }
+
+    function fetchEventLike(timegemId, eventId) {
+        var url = TIMEGEM_API_BASE + '/api/venue-like/' + encodeURIComponent(timegemId) +
+            '?event_id=' + encodeURIComponent(eventId);
+        return fetch(url, { method: 'GET' })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (data) { return !!(data && data.liked); })
+            .catch(function () { return false; });
+    }
+
+    function saveEventLike(timegemId, eventId, liked) {
+        var url = TIMEGEM_API_BASE + '/api/venue-like/' + encodeURIComponent(timegemId);
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_id: eventId, liked: !!liked })
+        }).then(function (res) { return res.ok; }).catch(function () { return false; });
     }
 
     // ─── Rendering helpers ────────────────────────────────────────────────────
@@ -373,7 +411,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 var rec = bySlug[slug];
                 if (rec) appendMatchDetails(block, rec);
             });
-            if (isHomePage()) renderHomeGems(bySlug);
+            if (isHomePage() || isProfilePage()) renderHomeGems(bySlug);
 
             if (isAgendaPage()) {
                 if (pageSlug) {
@@ -392,7 +430,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         (events || []).forEach(function (ev) {
             if (ev && ev.event_slug) eventsBySlug[ev.event_slug] = ev;
         });
+        if (isProfilePage()) paintProfileLikes();
         return eventsBySlug;
+    }
+
+    function eventById(id) {
+        if (!id) return null;
+        var slugs = Object.keys(eventsBySlug);
+        for (var i = 0; i < slugs.length; i++) {
+            var ev = eventsBySlug[slugs[i]];
+            if (ev && ev.id === id) return ev;
+        }
+        return null;
     }
 
     /** Event row for a block, straight from memory. */
@@ -463,6 +512,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var HAS_ID_ATTR = 'data-timegem-has-id';
     var NAV_CTA_LABEL_LOGGED_IN = 'Your profile';
     var ORIGINAL_LABEL_ATTR = 'data-timegem-label';
+    var ORIGINAL_HREF_ATTR = 'data-timegem-href';
     var BLOCK_CLASS = 'timegem-ven-block';
     var MATCH_COPY = {
         direct: 'This is one of your favorite artists',
@@ -472,6 +522,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         none: 'This is not a match'
     };
     var CONNECT_PORTAL_URL = 'https://my.personaltimetable.com/';
+    // dsp values the portal understands ('spotify' | 'apple'). A provider the
+    // venue has not enabled in connect_providers lands on the normal picker.
+    var CONNECT_PROVIDERS = [
+        { dsp: 'spotify', label: 'Connect with Spotify' },
+        { dsp: 'apple', label: 'Connect with Apple Music' }
+    ];
     var profileCache = {};
     var dialogRenderToken = 0;
 
@@ -487,7 +543,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * Passing venue_url explicitly matters: the portal's own venue config falls
      * back to https://rotown.nl, which would drop a staging visitor onto prod.
      */
-    function buildConnectUrl() {
+    /**
+     * @param {string} [dsp] 'spotify' | 'apple' — auto-starts that provider on
+     *   arrival. The portal ignores a dsp the venue has not enabled in
+     *   connect_providers, so it falls back to the normal picker.
+     */
+    function buildConnectUrl(dsp) {
         var venueId = getVenueIdFromQueue();
         if (!venueId) return null;
 
@@ -500,13 +561,46 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             returnUrl = window.location.href;
         }
 
-        return CONNECT_PORTAL_URL +
+        var url = CONNECT_PORTAL_URL +
             '?venue_id=' + encodeURIComponent(venueId) +
             '&venue_url=' + encodeURIComponent(returnUrl);
+
+        if (dsp) url += '&dsp=' + encodeURIComponent(dsp);
+        return url;
     }
 
-    /** One <li> per artist/track: artwork on the left, two lines of text. */
-    function appendProfileSection(body, heading, items) {
+    function appendItemText(parent, item) {
+        var text = document.createElement('div');
+
+        var primary = document.createElement('span');
+        primary.className = 'timegem-ven-list-primary';
+        primary.textContent = item.primary || '';
+        text.appendChild(primary);
+
+        if (item.secondary) {
+            var secondary = document.createElement('span');
+            secondary.className = 'timegem-ven-list-secondary';
+            secondary.textContent = item.secondary;
+            text.appendChild(secondary);
+        }
+
+        parent.appendChild(text);
+    }
+
+    function appendItemImage(parent, item) {
+        if (!item.image) return;
+        var img = document.createElement('img');
+        img.src = item.image;
+        img.alt = '';
+        img.loading = 'lazy';
+        parent.appendChild(img);
+    }
+
+    /**
+     * Artists or tracks. On the profile page the first three are large covers
+     * and the rest stay in a list underneath.
+     */
+    function appendProfileSection(body, heading, items, featured) {
         if (!items.length) return;
 
         var subhead = document.createElement('h3');
@@ -514,35 +608,42 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         subhead.textContent = heading;
         body.appendChild(subhead);
 
+        var lead = featured ? items.slice(0, 3) : [];
+        var rest = featured ? items.slice(3) : items;
+
+        if (lead.length) {
+            var row = document.createElement('div');
+            row.className = 'timegem-ven-featured';
+            lead.forEach(function (item, index) {
+                var card = document.createElement('div');
+                card.className = 'timegem-ven-featured__item';
+                var rank = document.createElement('span');
+                rank.className = 'timegem-ven-list-rank';
+                rank.textContent = String(index + 1);
+                card.appendChild(rank);
+                appendItemImage(card, item);
+                appendItemText(card, item);
+                row.appendChild(card);
+            });
+            body.appendChild(row);
+        }
+
+        if (!rest.length) return;
+
         var list = document.createElement('ul');
         list.className = 'timegem-ven-list';
 
-        items.forEach(function (item) {
+        rest.forEach(function (item, index) {
             var li = document.createElement('li');
-
-            if (item.image) {
-                var img = document.createElement('img');
-                img.src = item.image;
-                img.alt = '';
-                img.loading = 'lazy';
-                li.appendChild(img);
-            }
-
-            var text = document.createElement('div');
-
-            var primary = document.createElement('span');
-            primary.className = 'timegem-ven-list-primary';
-            primary.textContent = item.primary || '';
-            text.appendChild(primary);
-
-            if (item.secondary) {
-                var secondary = document.createElement('span');
-                secondary.className = 'timegem-ven-list-secondary';
-                secondary.textContent = item.secondary;
-                text.appendChild(secondary);
-            }
-
-            li.appendChild(text);
+            var media = document.createElement('span');
+            media.className = 'timegem-ven-list-media';
+            var rank = document.createElement('span');
+            rank.className = 'timegem-ven-list-rank';
+            rank.textContent = String(lead.length + index + 1);
+            media.appendChild(rank);
+            appendItemImage(media, item);
+            li.appendChild(media);
+            appendItemText(li, item);
             list.appendChild(li);
         });
 
@@ -575,7 +676,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     }
 
     /** textContent everywhere — artist and track names come from Spotify, not from us. */
-    function renderProfile(body, data) {
+    function renderProfile(body, data, options) {
         body.innerHTML = '';
 
         var profile = (data && data.profile) || {};
@@ -597,7 +698,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         body.appendChild(head);
 
         var genres = (data && data.topGenres) || [];
-        if (genres.length) {
+        var featured = !!(options && options.featured);
+        if (genres.length && featured) {
+            appendGenreCards(body, genres.slice(0, 6));
+        } else if (genres.length) {
             var genreLine = document.createElement('p');
             genreLine.className = 'timegem-ven-genres';
             genreLine.textContent = genres.slice(0, 5).map(function (g) { return g.genre; }).join(' \u00B7 ');
@@ -610,7 +714,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 primary: a.artist_name,
                 secondary: (a.genres || []).slice(0, 2).join(', ')
             };
-        }));
+        }), featured);
 
         appendProfileSection(body, 'Top tracks', ((data && data.topTracks) || []).map(function (t) {
             return {
@@ -618,8 +722,37 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 primary: t.track_name,
                 secondary: t.artist_name
             };
-        }));
+        }), featured);
 
+        if (!options || options.disconnect !== false) appendDisconnect(body);
+    }
+
+    var GENRE_CARD_BG = 'https://staging.rotown.nl/wp-content/themes/rotown_2025/dist/bg_gradient_pink.29387821.png';
+
+    function appendGenreCards(body, genres) {
+        var subhead = document.createElement('h3');
+        subhead.className = 'timegem-ven-subhead';
+        subhead.textContent = 'Genres';
+        body.appendChild(subhead);
+
+        var row = document.createElement('div');
+        row.className = 'timegem-ven-featured';
+
+        genres.forEach(function (g) {
+            var card = document.createElement('div');
+            card.className = 'timegem-ven-genre-card';
+            card.style.backgroundImage = 'url(' + GENRE_CARD_BG + ')';
+
+            var title = document.createElement('span');
+            title.textContent = g.genre || '';
+            card.appendChild(title);
+            row.appendChild(card);
+        });
+
+        body.appendChild(row);
+    }
+
+    function appendDisconnect(parent) {
         var footer = document.createElement('div');
         footer.className = 'timegem-ven-profile-foot';
 
@@ -630,7 +763,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         disconnect.addEventListener('click', disconnectTimegem);
         footer.appendChild(disconnect);
 
-        body.appendChild(footer);
+        parent.appendChild(footer);
     }
 
     /** Dialog contents depend on whether we already know the visitor. */
@@ -695,28 +828,34 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
 
         title.textContent = 'Find your gems';
-        intro.textContent = "Connect your Spotify account and we'll show you which shows actually match your taste.";
+        intro.textContent = "Connect your music account and we'll show you which shows actually match your taste.";
         body.appendChild(title);
         body.appendChild(intro);
 
-        var connectUrl = buildConnectUrl();
         var fine = document.createElement('p');
         fine.className = 'timegem-ven-fineprint';
 
-        if (!connectUrl) {
+        if (!buildConnectUrl()) {
             fine.textContent = 'No venue is configured for this page, so connecting is unavailable.';
             body.appendChild(fine);
             return;
         }
 
-        var link = document.createElement('a');
-        link.className = 'timegem-ven-connect';
-        link.href = connectUrl;
-        link.textContent = 'Connect with Spotify';
-        body.appendChild(link);
+        var choices = document.createElement('div');
+        choices.className = 'timegem-ven-connect-choices';
 
-        fine.textContent = 'You will be sent to my.personaltimetable.com to connect. We store your Spotify ' +
-            'profile, top artists and top tracks to build your recommendations, and send you straight back here ' +
+        CONNECT_PROVIDERS.forEach(function (provider) {
+            var link = document.createElement('a');
+            link.className = 'timegem-ven-connect is-' + provider.dsp;
+            link.href = buildConnectUrl(provider.dsp);
+            link.textContent = provider.label;
+            choices.appendChild(link);
+        });
+
+        body.appendChild(choices);
+
+        fine.textContent = 'You will be sent to my.personaltimetable.com to connect. We store your profile, ' +
+            'top artists and top tracks to build your recommendations, and send you straight back here ' +
             'afterwards.';
         body.appendChild(fine);
     }
@@ -859,7 +998,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     }
 
     function homeGemsBody() {
-        return document.querySelector('.' + BLOCK_CLASS + ' [' + GEMS_BODY_ATTR + ']');
+        return document.querySelector('[' + GEMS_BODY_ATTR + ']');
     }
 
     function renderHomeGemsMessage(text) {
@@ -1001,7 +1140,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var name = document.createElement('h4');
             name.className = 'timegem-ven-month__name';
             name.textContent = month.date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-            panel.appendChild(name);
+            //panel.appendChild(name);
             panel.appendChild(buildGemList(month, locale));
 
             tabs.push(tab);
@@ -1169,13 +1308,19 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             details = [];
         }
 
-        // Nothing matched: say nothing at all rather than filling the page with
-        // a block that only reports an absence. It starts hidden, so this just
-        // leaves it that way.
+        // Nothing matched: on a single event the visitor can still like it.
+        // The listing has no one event, so that block stays hidden.
         if (state !== 'unavailable' && matchType === 'none') {
             Array.prototype.forEach.call(blocks, function (block) {
-                block.hidden = true;
+                if (!getSlugFromCurrentPath()) {
+                    block.hidden = true;
+                    block.innerHTML = '';
+                    return;
+                }
+                block.hidden = false;
+                block.removeAttribute('data-match');
                 block.innerHTML = '';
+                mountLikeControl(block);
             });
             return;
         }
@@ -1214,6 +1359,49 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 });
                 block.appendChild(reasons);
             }
+
+            mountLikeControl(block);
+        });
+    }
+
+    /** Like / unlike on a single event page. No-op without a connected visitor or event id. */
+    function mountLikeControl(block) {
+        var timegemId = getTimegemId();
+        var slug = getSlugFromCurrentPath();
+        var eventRow = slug && eventsBySlug[slug];
+        var eventId = eventRow && eventRow.id;
+        if (!timegemId || !eventId || !block) return;
+        if (block.querySelector('.' + BLOCK_CLASS + '__like')) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = BLOCK_CLASS + '__like';
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = BLOCK_CLASS + '__like-btn';
+
+        function paint(liked) {
+            button.classList.toggle('is-liked', !!liked);
+            button.setAttribute('aria-pressed', liked ? 'true' : 'false');
+            button.textContent = liked ? 'Liked' : 'Like';
+        }
+
+        paint(false);
+        button.addEventListener('click', function () {
+            var next = button.getAttribute('aria-pressed') !== 'true';
+            paint(next);
+            button.disabled = true;
+            saveEventLike(timegemId, eventId, next).then(function (ok) {
+                button.disabled = false;
+                if (!ok) paint(!next);
+            });
+        });
+
+        wrap.appendChild(button);
+        block.appendChild(wrap);
+
+        fetchEventLike(timegemId, eventId).then(function (liked) {
+            if (button.isConnected) paint(liked);
         });
     }
 
@@ -1233,6 +1421,332 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
             var next = hasId ? NAV_CTA_LABEL_LOGGED_IN : cta.getAttribute(ORIGINAL_LABEL_ATTR);
             if (label.textContent !== next) label.textContent = next;
+
+            if (cta.tagName === 'A') {
+                if (!cta.hasAttribute(ORIGINAL_HREF_ATTR)) {
+                    cta.setAttribute(ORIGINAL_HREF_ATTR, cta.getAttribute('href') || '');
+                }
+                cta.setAttribute('href', hasId ? PROFILE_PATH : cta.getAttribute(ORIGINAL_HREF_ATTR));
+            }
+        });
+    }
+
+    var PROFILE_PAGE_ID = 'timegem-ven-profile-page';
+
+    function profileIdentity() {
+        var page = document.getElementById(PROFILE_PAGE_ID);
+        return page && page.querySelector('[data-timegem-profile]');
+    }
+
+    var PROFILE_NAV = [
+        { id: 'recommendations', label: 'My recommendations' },
+        { id: 'likes', label: 'My likes' },
+        { id: 'profile', label: 'My profile' },
+        { id: 'settings', label: 'My settings' }
+    ];
+
+    function appendConnectChoices(slot) {
+        if (!buildConnectUrl()) {
+            var missing = document.createElement('p');
+            missing.className = 'timegem-ven-fineprint';
+            missing.textContent = 'No venue is configured for this page, so connecting is unavailable.';
+            slot.appendChild(missing);
+            return;
+        }
+
+        var choices = document.createElement('div');
+        choices.className = 'timegem-ven-connect-choices';
+        CONNECT_PROVIDERS.forEach(function (provider) {
+            var link = document.createElement('a');
+            link.className = 'timegem-ven-connect is-' + provider.dsp;
+            link.href = buildConnectUrl(provider.dsp);
+            link.textContent = provider.label;
+            choices.appendChild(link);
+        });
+        slot.appendChild(choices);
+    }
+
+    function renderProfileSettings(slot, hasId) {
+        var title = document.createElement('h2');
+        title.textContent = 'My settings';
+        slot.appendChild(title);
+
+        var intro = document.createElement('p');
+        if (!hasId) {
+            intro.textContent = 'Connect a music account to see your profile and recommendations on this device.';
+            slot.appendChild(intro);
+            appendConnectChoices(slot);
+            return;
+        }
+
+        intro.textContent = 'Your music account is connected on this device. Disconnect to stop recommendations here. Reconnecting brings the same profile back.';
+        slot.appendChild(intro);
+        appendDisconnect(slot);
+    }
+
+    var profileLikesView = { body: null, likes: null, failed: false };
+
+    function paintProfileLikes() {
+        var body = profileLikesView.body;
+        var likes = profileLikesView.likes;
+        if (!body || !body.isConnected || !likes) return;
+
+        body.innerHTML = '';
+
+        function message(text) {
+            var line = document.createElement('p');
+            line.textContent = text;
+            body.appendChild(line);
+        }
+
+        if (profileLikesView.failed) {
+            message("We couldn't load your likes right now.");
+            return;
+        }
+        if (!likes.length) {
+            message('You have not liked a show yet.');
+            return;
+        }
+
+        var list = document.createElement('ul');
+        list.className = 'timegem-ven-month__list';
+        var locale = pageLocale();
+
+        likes.forEach(function (like) {
+            var ev = eventById(like.event_id);
+            var name = (ev && ev.event_name) || like.event_name || '';
+            var slug = (ev && ev.event_slug) || like.event_slug || '';
+            var dateValue = (ev && ev.event_date) || like.event_date || null;
+            if (!name && !slug) return;
+
+            var item = document.createElement('li');
+            item.className = 'timegem-ven-gem';
+
+            var when = dateValue ? new Date(dateValue) : null;
+            if (when && !isNaN(when.getTime())) {
+                var day = document.createElement('span');
+                day.className = 'timegem-ven-gem__date';
+                day.textContent = when.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+                item.appendChild(day);
+            }
+
+            var link = document.createElement('a');
+            link.className = 'timegem-ven-gem__name';
+            link.href = slug ? agendaPath + slug + '/' : '/agenda/';
+            link.textContent = name || slug;
+            item.appendChild(link);
+
+            var unlike = document.createElement('button');
+            unlike.type = 'button';
+            unlike.className = 'timegem-ven-gem__unlike';
+            unlike.textContent = 'Unlike';
+            unlike.addEventListener('click', function () {
+                var timegemId = getTimegemId();
+                if (!timegemId || !like.event_id) return;
+                unlike.disabled = true;
+                saveEventLike(timegemId, like.event_id, false).then(function (ok) {
+                    unlike.disabled = false;
+                    if (!ok) return;
+                    profileLikesView.likes = (profileLikesView.likes || []).filter(function (row) {
+                        return row.event_id !== like.event_id;
+                    });
+                    paintProfileLikes();
+                });
+            });
+            item.appendChild(unlike);
+
+            list.appendChild(item);
+        });
+
+        if (!list.childNodes.length) {
+            message('Loading your likes…');
+            return;
+        }
+        body.appendChild(list);
+    }
+
+    function renderProfileLikes(slot, hasId) {
+        var title = document.createElement('h2');
+        title.textContent = 'My likes';
+        slot.appendChild(title);
+
+        var body = document.createElement('div');
+        slot.appendChild(body);
+        profileLikesView.body = body;
+
+        if (!hasId) {
+            var signedOut = document.createElement('p');
+            signedOut.textContent = 'Connect your music account under My settings to save likes.';
+            body.appendChild(signedOut);
+            return;
+        }
+
+        var loading = document.createElement('p');
+        loading.textContent = 'Loading your likes…';
+        body.appendChild(loading);
+
+        fetchVenueLikes(getTimegemId()).then(function (likes) {
+            if (!body.isConnected) return;
+            profileLikesView.failed = !likes;
+            profileLikesView.likes = likes || [];
+            paintProfileLikes();
+        });
+    }
+
+    function profilePanelFromHash() {
+        var hash = '';
+        try { hash = (window.location.hash || '').replace(/^#/, ''); } catch (e) {}
+        for (var i = 0; i < PROFILE_NAV.length; i++) {
+            if (PROFILE_NAV[i].id === hash) return hash;
+        }
+        return 'recommendations';
+    }
+
+    /**
+     * Covers the WordPress 404 at /myrotown. A side menu switches between
+     * recommendations, profile, and settings.
+     */
+    function renderProfilePage(hasId) {
+        if (!isProfilePage() || document.getElementById(PROFILE_PAGE_ID)) return;
+
+        var page = document.createElement('div');
+        page.id = PROFILE_PAGE_ID;
+        page.className = 'timegem-ven-profile-page';
+
+        var close = document.createElement('a');
+        close.className = 'timegem-ven-profile-page__close';
+        close.href = '/';
+        close.setAttribute('aria-label', 'Close');
+        close.textContent = 'Close';
+        page.appendChild(close);
+
+        var frame = document.createElement('div');
+        frame.className = 'timegem-ven-profile-page__frame';
+
+        var side = document.createElement('aside');
+        side.className = 'timegem-ven-profile-page__side';
+
+        var nav = document.createElement('div');
+        nav.className = 'timegem-ven-profile-nav';
+        nav.setAttribute('role', 'tablist');
+        nav.setAttribute('aria-label', 'My Rotown');
+        side.appendChild(nav);
+
+        var main = document.createElement('div');
+        main.className = 'timegem-ven-profile-page__main';
+
+        var panels = {};
+        var tabs = [];
+
+        PROFILE_NAV.forEach(function (item) {
+            var panel = document.createElement('section');
+            panel.className = 'timegem-ven-profile-page__panel';
+            panel.id = 'timegem-ven-panel-' + item.id;
+            panel.setAttribute('data-panel', item.id);
+            panel.setAttribute('role', 'tabpanel');
+            panel.classList.add('timegem-ven-profile-page__gems');
+            if (item.id === 'profile') {
+                panel.classList.add('timegem-ven-profile-page__identity');
+                panel.setAttribute('data-timegem-profile', '');
+            }
+            main.appendChild(panel);
+            panels[item.id] = panel;
+
+            var tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'timegem-ven-profile-nav__tab';
+            tab.id = 'timegem-ven-tab-' + item.id;
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', panel.id);
+            tab.textContent = item.label;
+            panel.setAttribute('aria-labelledby', tab.id);
+            nav.appendChild(tab);
+            tabs.push(tab);
+        });
+
+        function selectPanel(id) {
+            PROFILE_NAV.forEach(function (item, i) {
+                var active = item.id === id;
+                tabs[i].classList.toggle('is-active', active);
+                tabs[i].setAttribute('aria-selected', active ? 'true' : 'false');
+                tabs[i].tabIndex = active ? 0 : -1;
+                panels[item.id].hidden = !active;
+            });
+            try {
+                if (window.location.hash !== '#' + id) {
+                    history.replaceState(null, '', '#' + id);
+                }
+            } catch (e) {}
+        }
+
+        tabs.forEach(function (tab, i) {
+            tab.addEventListener('click', function () { selectPanel(PROFILE_NAV[i].id); });
+            tab.addEventListener('keydown', function (e) {
+                var next = null;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = tabs.length - 1;
+                if (next === null) return;
+                e.preventDefault();
+                selectPanel(PROFILE_NAV[next].id);
+                tabs[next].focus();
+            });
+        });
+
+        var gemsTitle = document.createElement('h2');
+        gemsTitle.textContent = 'My recommendations';
+        panels.recommendations.appendChild(gemsTitle);
+        var gemsBody = document.createElement('div');
+        gemsBody.className = 'timegem-ven-profile-page__gems-body';
+        gemsBody.setAttribute(GEMS_BODY_ATTR, '');
+        panels.recommendations.appendChild(gemsBody);
+
+        renderProfileSettings(panels.settings, hasId);
+        renderProfileLikes(panels.likes, hasId);
+
+        frame.appendChild(side);
+        frame.appendChild(main);
+        page.appendChild(frame);
+        document.body.appendChild(page);
+        document.documentElement.classList.add('timegem-ven-profile-open');
+        selectPanel(profilePanelFromHash());
+
+        try { document.title = 'Jouw profiel'; } catch (e) {}
+
+        if (!hasId) {
+            var signedOut = document.createElement('p');
+            signedOut.textContent = 'Connect your music account under My settings to see your top artists and tracks.';
+            panels.profile.appendChild(signedOut);
+            renderHomeGemsMessage('Connect to see which shows match your taste this month.');
+            return;
+        }
+
+        var loading = document.createElement('p');
+        loading.className = 'timegem-ven-fineprint';
+        loading.textContent = 'Loading your profile…';
+        panels.profile.appendChild(loading);
+        renderHomeGemsMessage('Loading your gems…');
+
+        var timegemId = getTimegemId();
+        var cached = profileCache[timegemId];
+        if (cached) {
+            renderProfile(panels.profile, cached, { disconnect: false, featured: true });
+            return;
+        }
+
+        fetchVenueProfile(timegemId, getVenueIdFromQueue()).then(function (data) {
+            var slot = profileIdentity();
+            if (!slot) return;
+            if (!data || !data.profile) {
+                slot.innerHTML = '';
+                var fail = document.createElement('p');
+                fail.textContent = "We couldn't load your profile right now. Please try again later.";
+                slot.appendChild(fail);
+                return;
+            }
+            profileCache[timegemId] = data;
+            renderProfile(slot, data, { disconnect: false, featured: true });
         });
     }
 
@@ -1256,6 +1770,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         window.addEventListener('click', function (e) {
             var cta = e.target && e.target.closest ? e.target.closest(CTA_SELECTOR) : null;
             if (!cta) return;
+
+            // Logged in, "Your profile" is a real link to /myrotown.
+            if (cta.matches(NAV_CTA_SELECTOR) && getTimegemId()) return;
 
             // The discover CTA is hidden once we have a timegem_id, but don't
             // hijack it if some other stylesheet puts it back on screen.
@@ -1293,8 +1810,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         clearTeaseIcons();
         var hasId = syncDiscoverCta();
         syncNavCtaLabel(hasId);
-        renderHomeGemsBlock(hasId);
-        renderAgendaBlock(hasId);
+        if (isProfilePage()) renderProfilePage(hasId);
+        else {
+            renderHomeGemsBlock(hasId);
+            renderAgendaBlock(hasId);
+        }
         bindGemsCta();
 
         if (hasId && SHOW_LOADING_STATES) {
@@ -1429,6 +1949,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 text-transform: uppercase;
                 letter-spacing: .02em;
             }
+            .timegem-ven-connect-choices {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin: 6px 0 16px;
+            }
+            .timegem-ven-connect-choices .timegem-ven-connect {
+                margin: 0;
+            }
+            .timegem-ven-connect.is-apple {
+                background: #fff;
+            }
             .timegem-ven-connect:hover {
                 background: #fff;
             }
@@ -1466,11 +1998,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 color: greenyellow;
             }
             .timegem-ven-subhead {
-                margin: 20px 0 8px;
-                font-size: 12px;
+                margin: 48px 0 8px;
+                font-size: 20px;
                 text-transform: uppercase;
-                letter-spacing: .08em;
-                color: greenyellow;
+            }
+            .timegem-ven-subhead:first-of-type {
+                margin-top: 20px;
             }
             .timegem-ven-list {
                 list-style: none;
@@ -1482,6 +2015,37 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 align-items: center;
                 gap: 12px;
                 padding: 6px 0;
+            }
+            .timegem-ven-list-media {
+                position: relative;
+                flex: none;
+                width: 40px;
+                height: 40px;
+            }
+            .timegem-ven-list-media img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+            .timegem-ven-list-media .timegem-ven-list-rank {
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 18px;
+                height: 18px;
+                aspect-ratio: 1;
+                margin: 0;
+                background: #e5fa4d;
+                color: #111;
+                font-size: 11px;
+                font-weight: 800;
+                line-height: 1;
+                opacity: 1;
             }
             .timegem-ven-list img {
                 width: 40px;
@@ -1539,6 +2103,31 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 border-top: 8px solid #e5fa4d;
                 
             }
+            .timegem-ven-block__like {
+                margin-top: 20px;
+            }
+            .timegem-ven-block__like-btn {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                color: #111;
+                border: 1px solid #111;
+                font: inherit;
+                font-size: 13px;
+                font-weight: 800;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                padding: 10px 16px;
+                cursor: pointer;
+            }
+            .timegem-ven-block__like-btn.is-liked {
+                background: #e5fa4d;
+                border-color: #e5fa4d;
+            }
+            .timegem-ven-block__like-btn:disabled {
+                opacity: .6;
+                cursor: default;
+            }
             .timegem-ven-block__text {
                 margin: 0;
                 
@@ -1584,21 +2173,26 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
-                border: 1px solid rgba(0, 0, 0, .18);
+                font-family: 'ABC Gravity', sans-serif;
                 background: transparent;
                 color: inherit;
                 font: inherit;
-                font-size: 12px;
+                font-size: 20px;
                 font-weight: 800;
                 line-height: 1;
                 text-transform: uppercase;
                 letter-spacing: .06em;
                 padding: 8px 13px;
-                border-radius: 999px;
+                
                 cursor: pointer;
             }
+
+            .timegem-ven-tab span {
+                font-family: 'ABC Gravity', sans-serif;
+            }
+
             .timegem-ven-tab:hover {
-                border-color: rgba(0, 0, 0, .45);
+                background: #00000020;
             }
             .timegem-ven-tab.is-active {
                 background: #000;
@@ -1613,6 +2207,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-tab.is-active .timegem-ven-tab__count {
                 opacity: .75;
             }
+
+            
+
             .timegem-ven-tab:focus-visible {
                 outline: 2px solid #000;
                 outline-offset: 2px;
@@ -1692,6 +2289,32 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 background: red;
                 color: #fff;
                 
+            }
+            .timegem-ven-gem__unlike {
+                -webkit-appearance: none;
+                appearance: none;
+                margin-left: auto;
+                flex: none;
+                background: transparent;
+                color: inherit;
+                border: 1px solid currentColor;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                padding: 7px 14px;
+                cursor: pointer;
+            }
+            .timegem-ven-gem__unlike:hover,
+            .timegem-ven-gem__unlike:focus-visible {
+                background: #111;
+                color: #fff;
+            }
+            .timegem-ven-gem__unlike:disabled {
+                opacity: .5;
+                cursor: default;
             }
             .timegem-ven-block[hidden] {
                 display: none;
@@ -1780,6 +2403,245 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             html[data-timegem-has-id] .cta-discover {
                 display: none !important;
+            }
+            html.timegem-ven-profile-open,
+            html.timegem-ven-profile-open body {
+                overflow: hidden;
+            }
+            .timegem-ven-profile-page {
+                position: fixed;
+                inset: 0;
+                z-index: 100000;
+                overflow: auto;
+                background: #0c0c0c;
+                color: #fff;
+                -webkit-overflow-scrolling: touch;
+            }
+            .timegem-ven-profile-page__close {
+                position: fixed;
+                top: 0;
+                right: 24px;
+                z-index: 2;
+                background: #e5fa4d;
+                color: #111;
+                padding: 14px 16px 0;
+                font-size: 13px;
+                font-weight: 800;
+                letter-spacing: .06em;
+                line-height: 1;
+                text-transform: uppercase;
+                text-decoration: none;
+            }
+            .timegem-ven-profile-page__close:after {
+                content: "";
+                clip-path: polygon(50% 100%, 0 0, 100% 0);
+                background-color: #e5fa4d;
+                width: 100%;
+                height: 18px;
+                position: absolute;
+                bottom: calc(.5px - 18px);
+                left: 0;
+            }
+            .timegem-ven-profile-page__close:hover,
+            .timegem-ven-profile-page__close:focus-visible {
+                background: red;
+                color: #fff;
+            }
+            .timegem-ven-profile-page__close:hover:after,
+            .timegem-ven-profile-page__close:focus-visible:after {
+                background-color: red;
+            }
+            .timegem-ven-profile-page__frame {
+                display: grid;
+                grid-template-columns: 240px minmax(0, 1fr);
+                column-gap: 80px;
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 96px 96px 120px;
+                box-sizing: border-box;
+            }
+            .timegem-ven-profile-page__side {
+                position: sticky;
+                top: 96px;
+                align-self: start;
+                padding-top: 8px;
+            }
+            .timegem-ven-profile-nav {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
+                margin-top: 0;
+            }
+            .timegem-ven-profile-nav__tab {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                color: #fff;
+                border: 0;
+                text-align: left;
+                font-family: 'ABC Gravity', sans-serif;
+                font-size: 24px;
+                font-weight: 800;
+                
+                text-transform: uppercase;
+                padding: 12px 14px;
+                cursor: pointer;
+            }
+            .timegem-ven-profile-nav__tab:hover {
+                background: rgba(255, 255, 255, .08);
+            }
+            .timegem-ven-profile-nav__tab.is-active {
+                background: #e5fa4d;
+                color: #111;
+            }
+            .timegem-ven-profile-nav__tab:focus-visible {
+                outline: 2px solid #e5fa4d;
+                outline-offset: 2px;
+            }
+            .timegem-ven-profile-page__main {
+                min-width: 0;
+            }
+            .timegem-ven-profile-page__panel[hidden] {
+                display: none;
+            }
+            .timegem-ven-profile-page__identity h2,
+            .timegem-ven-profile-page__panel > h2 {
+                margin: 0 0 20px;
+                color: #e5fa4d;
+                font-size: 40px;
+                line-height: 1;
+                text-transform: uppercase;
+            }
+            .timegem-ven-profile-page__identity > p,
+            .timegem-ven-profile-page__panel > p {
+                margin: 0 0 16px;
+                font-size: 16px;
+                line-height: 1.5;
+            }
+            .timegem-ven-profile-page .timegem-ven-avatar {
+                width: 88px;
+                height: 88px;
+            }
+            .timegem-ven-profile-page .timegem-ven-list-media {
+                width: 48px;
+                height: 48px;
+            }
+            .timegem-ven-profile-page .timegem-ven-list img {
+                width: 48px;
+                height: 48px;
+            }
+            .timegem-ven-featured {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 18px;
+                margin: 0 0 12px;
+            }
+            .timegem-ven-featured__item {
+                position: relative;
+            }
+            .timegem-ven-featured__item .timegem-ven-list-rank {
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                aspect-ratio: 1;
+                margin: 0;
+                background: #e5fa4d;
+                color: #111;
+                font-size: 14px;
+                opacity: 1;
+            }
+            .timegem-ven-featured__item img {
+                width: 100%;
+                aspect-ratio: 1;
+                height: auto;
+                object-fit: cover;
+                display: block;
+                margin-bottom: 10px;
+            }
+            .timegem-ven-featured__item .timegem-ven-list-primary {
+                font-size: 15px;
+                font-weight: 700;
+                line-height: 1.25;
+            }
+            .timegem-ven-featured__item .timegem-ven-list-secondary {
+                margin-top: 2px;
+                font-size: 13px;
+                opacity: .6;
+            }
+            .timegem-ven-genre-card {
+                aspect-ratio: 1;
+                background-color: #e7b4d8;
+                background-size: cover;
+                background-position: center;
+                display: flex;
+                align-items: flex-end;
+                justify-content: flex-start;
+                padding: 14px;
+                box-sizing: border-box;
+            }
+            .timegem-ven-genre-card span {
+                color: #fff;
+                font-family: 'ABC Gravity', sans-serif;
+                font-size: 32px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+            }
+            @media (max-width: 640px) {
+                .timegem-ven-featured {
+                    gap: 12px;
+                }
+            }
+            .timegem-ven-profile-page__gems {
+                background: #fff;
+                color: #111;
+                padding: 28px 28px 20px;
+                border-top: 8px solid #e5fa4d;
+            }
+            .timegem-ven-profile-page__gems h2,
+            .timegem-ven-profile-page__gems .timegem-ven-profile-head h2 {
+                color: #111;
+            }
+            .timegem-ven-profile-page__gems > h2 {
+                margin: 0 0 8px;
+            }
+            .timegem-ven-profile-page__gems .timegem-ven-disconnect {
+                color: #111;
+                border-color: rgba(0, 0, 0, .25);
+            }
+            .timegem-ven-profile-page__gems .timegem-ven-tab.is-active {
+                background: #000;
+                color: #fff;
+            }
+            .timegem-ven-profile-page__gems .timegem-ven-gem {
+                border-top-color: rgba(0, 0, 0, .12);
+            }
+            @media (max-width: 860px) {
+                .timegem-ven-profile-page__frame {
+                    grid-template-columns: 1fr;
+                    column-gap: 0;
+                    padding: 40px 24px 72px;
+                }
+                .timegem-ven-profile-page__side {
+                    position: static;
+                }
+                .timegem-ven-profile-nav {
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                    margin-top: 20px;
+                    margin-bottom: 28px;
+                }
+                .timegem-ven-profile-page__identity h2,
+                .timegem-ven-profile-page__panel > h2 {
+                    font-size: 32px;
+                }
             }
         `;
         document.head.appendChild(style);
