@@ -511,6 +511,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var DIALOG_ID = 'timegem-ven-dialog';
     var HAS_ID_ATTR = 'data-timegem-has-id';
     var NAV_CTA_LABEL_LOGGED_IN = 'Your profile';
+    var NAV_CTA_LABEL_LOGGED_OUT = 'Ontdek jouw must-sees';
     var ORIGINAL_LABEL_ATTR = 'data-timegem-label';
     var ORIGINAL_HREF_ATTR = 'data-timegem-href';
     var BLOCK_CLASS = 'timegem-ven-block';
@@ -827,15 +828,26 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             return;
         }
 
-        title.textContent = 'Find your gems';
-        intro.textContent = "Connect your music account and we'll show you which shows actually match your taste.";
+        title.textContent = 'Ontdek jouw must-sees';
         body.appendChild(title);
+
+        var hook = document.createElement('p');
+        hook.className = 'timegem-ven-hook';
+        hook.appendChild(document.createTextNode('Wil je nooit meer een tof concert missen dat'));
+        hook.appendChild(document.createElement('br'));
+        hook.appendChild(document.createTextNode('écht bij je past?'));
+        body.appendChild(hook);
+
+        intro.textContent = 'Koppel je Apple Music of Spotify aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. Op basis van jouw luistergedrag krijg je suggesties die perfect aansluiten bij jouw smaak, van je favoriete artiesten tot verborgen parels die je nog niet kende.';
         body.appendChild(intro);
 
-        var fine = document.createElement('p');
-        fine.className = 'timegem-ven-fineprint';
+        var privacy = document.createElement('p');
+        privacy.textContent = 'En geen zorgen, jouw geheime meezingers blijven gewoon tussen jou en Apple Music/Spotify. We vragen Apple Music/Spotify alleen om een kijkje te nemen in je profiel, zodat we jouw muzieksmaak beter leren kennen. Zo kunnen we je nog beter matchen met concerten die écht bij je passen. Geen spam, geen gedoe met data delen, gewoon de perfecte concerttips voor jou.';
+        body.appendChild(privacy);
 
         if (!buildConnectUrl()) {
+            var fine = document.createElement('p');
+            fine.className = 'timegem-ven-fineprint';
             fine.textContent = 'No venue is configured for this page, so connecting is unavailable.';
             body.appendChild(fine);
             return;
@@ -853,11 +865,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         body.appendChild(choices);
-
-        fine.textContent = 'You will be sent to my.personaltimetable.com to connect. We store your profile, ' +
-            'top artists and top tracks to build your recommendations, and send you straight back here ' +
-            'afterwards.';
-        body.appendChild(fine);
     }
 
     function buildDialog() {
@@ -1419,7 +1426,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 cta.setAttribute(ORIGINAL_LABEL_ATTR, label.textContent.trim());
             }
 
-            var next = hasId ? NAV_CTA_LABEL_LOGGED_IN : cta.getAttribute(ORIGINAL_LABEL_ATTR);
+            var next = hasId ? NAV_CTA_LABEL_LOGGED_IN : NAV_CTA_LABEL_LOGGED_OUT;
             if (label.textContent !== next) label.textContent = next;
 
             if (cta.tagName === 'A') {
@@ -1442,7 +1449,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         { id: 'recommendations', label: 'My recommendations' },
         { id: 'likes', label: 'My likes' },
         { id: 'profile', label: 'My profile' },
-        { id: 'settings', label: 'My settings' }
+        { id: 'settings', label: 'My settings' },
+        { id: 'about', label: 'About' }
     ];
 
     function appendConnectChoices(slot) {
@@ -1464,6 +1472,36 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             choices.appendChild(link);
         });
         slot.appendChild(choices);
+    }
+
+    function renderProfileAbout(slot) {
+        var title = document.createElement('h2');
+        title.textContent = 'About';
+        slot.appendChild(title);
+
+        var intro = document.createElement('p');
+        intro.textContent = 'The lightning bolts tell you how good a match is. More bolts means the show fits your taste better. A star is a direct match: one of your favorite artists.';
+        slot.appendChild(intro);
+
+        var list = document.createElement('ul');
+        list.className = 'timegem-ven-about-legend';
+
+        [
+            { type: 'light', text: 'One bolt — a lighter match.' },
+            { type: 'medium', text: 'Two bolts — a stronger match.' },
+            { type: 'heavy', text: 'Three bolts — the strongest match.' },
+            { type: 'direct', text: 'A star — a direct match.' }
+        ].forEach(function (row) {
+            var item = document.createElement('li');
+            var symbol = buildMatchSymbol(row.type);
+            if (symbol) item.appendChild(symbol);
+            var label = document.createElement('span');
+            label.textContent = row.text;
+            item.appendChild(label);
+            list.appendChild(item);
+        });
+
+        slot.appendChild(list);
     }
 
     function renderProfileSettings(slot, hasId) {
@@ -1704,6 +1742,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         renderProfileSettings(panels.settings, hasId);
         renderProfileLikes(panels.likes, hasId);
+        renderProfileAbout(panels.about);
 
         frame.appendChild(side);
         frame.appendChild(main);
@@ -1869,6 +1908,22 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 gap: 6px;
                 line-height: 1;
             }
+            .timegem-ven-about-legend {
+                list-style: none;
+                margin: 16px 0 0;
+                padding: 0;
+            }
+            .timegem-ven-about-legend li {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                padding: 8px 0;
+            }
+            .timegem-ven-about-legend .timegem-ven-symbols {
+                min-width: 4.2em;
+                color: greenyellow;
+                font-size: 18px;
+            }
 
             .wp_theatre_event:hover .timegem-ven-match-details {
                 background:red;
@@ -1915,8 +1970,16 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 
                 color: greenyellow;
             }
+            .timegem-ven-hook {
+                margin: 0 0 14px;
+                font-size: 17px;
+                font-weight: 800;
+                line-height: 1.3;
+                text-transform: uppercase;
+                letter-spacing: .02em;
+            }
             .timegem-ven-dialog-inner p {
-                margin: 0 0 8px;
+                margin: 0 0 12px;
                 font-size: 15px;
                 line-height: 1.5;
             }
@@ -2067,24 +2130,24 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-disconnect {
                 -webkit-appearance: none;
                 appearance: none;
-                background: transparent;
-                color: inherit;
-                font: inherit;
-                font-size: 12px;
+                background: red;
+                color: black;
+                font: ;
+                font-size: 24px;
                 font-weight: 800;
                 line-height: 1;
                 text-transform: uppercase;
-                letter-spacing: .06em;
-                border: 1px solid rgba(255, 255, 255, .35);
-                border-radius: 999px;
-                padding: 9px 16px;
+                
+                font-family: 'ABC Gravity', sans-serif;
+                
+                padding: 8px 16px;
                 cursor: pointer;
             }
             .timegem-ven-disconnect:hover,
             .timegem-ven-disconnect:focus-visible {
-                background: #fff;
-                color: #000;
-                border-color: #fff;
+                background: black;
+                color: white;
+                
             }
             .timegem-ven-list-secondary {
                 display: block;
@@ -2109,20 +2172,20 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-block__like-btn {
                 -webkit-appearance: none;
                 appearance: none;
-                background: transparent;
-                color: #111;
-                border: 1px solid #111;
-                font: inherit;
-                font-size: 13px;
+                background: black;
+                color: white;
+                
+                font-family: 'ABC Gravity', sans-serif;
+                font-size: 24px;
                 font-weight: 800;
-                letter-spacing: .06em;
+                
                 text-transform: uppercase;
-                padding: 10px 16px;
+                padding: 6px 16px;
                 cursor: pointer;
             }
             .timegem-ven-block__like-btn.is-liked {
-                background: #e5fa4d;
-                border-color: #e5fa4d;
+                background: red;
+                
             }
             .timegem-ven-block__like-btn:disabled {
                 opacity: .6;
