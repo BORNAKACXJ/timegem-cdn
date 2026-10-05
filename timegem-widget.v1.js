@@ -300,6 +300,35 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .catch(function () { return null; });
     }
 
+    /**
+     * Asks the API to re-pull this visitor's top artists/tracks from Spotify
+     * (using the token stored in spotify_profiles_ven) and replace what is
+     * stored. Resolves { ok, status, reconnect, data }. reconnect:true means
+     * the stored Spotify token has expired and there is no refresh token, so
+     * the only way forward is the connect portal again.
+     */
+    function refreshVenueProfile(timegemId, venueId) {
+        var url = TIMEGEM_API_BASE + '/api/venue-profile/' + encodeURIComponent(timegemId) + '/refresh';
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ venue_id: venueId || null, limit: 10 })
+        })
+            .then(function (res) {
+                return res.json().catch(function () { return null; }).then(function (data) {
+                    return {
+                        ok: res.ok,
+                        status: res.status,
+                        reconnect: !!(data && data.reconnect),
+                        data: data
+                    };
+                });
+            })
+            .catch(function (err) {
+                return { ok: false, status: 0, reconnect: false, data: null, error: err };
+            });
+    }
+
     // Calls your NEW Netlify proxy — Supabase key stays server-side
     function fetchEventBySlug(slug) {
         var url = TIMEGEM_API_BASE + '/api/event/' + encodeURIComponent(slug);
@@ -1616,7 +1645,93 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         intro.textContent = 'Your music account is connected on this device. Disconnect to stop recommendations here. Reconnecting brings the same profile back.';
         slot.appendChild(intro);
+        appendRefresh(slot);
         appendDisconnect(slot);
+    }
+
+    var REFRESH_LABEL = 'Refresh my data';
+
+    /**
+     * "Refresh" on My settings: pulls the visitor's latest top artists and
+     * tracks from Spotify through the API, then repaints the profile panel and
+     * re-scores the recommendations so the gems reflect the new data.
+     *
+     * If the API says the Spotify token has expired (no refresh token on
+     * file), we show the connect buttons instead — the portal refetches
+     * everything and sends the visitor back with the same timegem_id.
+     */
+    function appendRefresh(parent) {
+        var wrap = document.createElement('div');
+        wrap.className = 'timegem-ven-refresh';
+
+        var text = document.createElement('p');
+        text.textContent = 'Listened to new music lately? Refresh to update your top artists, tracks and recommendations with your latest Spotify data.';
+        wrap.appendChild(text);
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'timegem-ven-refresh__button';
+        button.textContent = REFRESH_LABEL;
+        wrap.appendChild(button);
+
+        var status = document.createElement('p');
+        status.className = 'timegem-ven-refresh__status timegem-ven-fineprint';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        wrap.appendChild(status);
+
+        var reconnectSlot = document.createElement('div');
+        reconnectSlot.className = 'timegem-ven-refresh__reconnect';
+        wrap.appendChild(reconnectSlot);
+
+        button.addEventListener('click', function () {
+            var timegemId = getTimegemId();
+            if (!timegemId) return;
+
+            button.disabled = true;
+            button.textContent = 'Refreshing…';
+            status.textContent = 'Fetching your latest listening data from Spotify…';
+            reconnectSlot.innerHTML = '';
+
+            var venueId = getVenueIdFromQueue();
+
+            refreshVenueProfile(timegemId, venueId).then(function (result) {
+                button.disabled = false;
+                button.textContent = REFRESH_LABEL;
+
+                if (result.ok && result.data && result.data.profile) {
+                    // Stored data changed, so every cached derivation of it is stale.
+                    profileCache[timegemId] = result.data;
+                    cacheClear(CACHE_PREFIX + timegemId + ':');
+
+                    var slot = profileIdentity();
+                    if (slot) renderProfile(slot, result.data, { disconnect: false, featured: true });
+
+                    renderHomeGemsMessage('Updating your gems…');
+                    applyRecommendations(timegemId, venueId);
+
+                    var when = new Date();
+                    status.textContent = 'Done — your profile was updated at ' +
+                        when.toLocaleTimeString(pageLocale(), { hour: '2-digit', minute: '2-digit' }) + '.';
+                    return;
+                }
+
+                if (result.reconnect) {
+                    status.textContent = 'Your Spotify connection has expired. Connect again to refresh — you will keep the same profile and likes.';
+                    appendConnectChoices(reconnectSlot);
+                    return;
+                }
+
+                if (result.status === 429) {
+                    status.textContent = 'Spotify is busy right now. Please try again in a minute.';
+                    return;
+                }
+
+                status.textContent = "We couldn't refresh your data right now. Please try again later.";
+            });
+        });
+
+        parent.appendChild(wrap);
     }
 
     var profileLikesView = { body: null, likes: null, failed: false };
@@ -2296,6 +2411,45 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 padding: 8px 16px;
                 cursor: pointer;
             }
+            .timegem-ven-refresh {
+                margin: 0 0 24px;
+            }
+            .timegem-ven-refresh p {
+                margin: 0 0 12px;
+            }
+            .timegem-ven-refresh__button {
+                -webkit-appearance: none;
+                appearance: none;
+                background: black;
+                color: white;
+                border: 2px solid black;
+                font-size: 24px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                font-family: 'ABC Gravity', sans-serif;
+                padding: 8px 16px;
+                cursor: pointer;
+            }
+            .timegem-ven-refresh__button:hover,
+            .timegem-ven-refresh__button:focus-visible {
+                background: white;
+                color: black;
+            }
+            .timegem-ven-refresh__button:disabled {
+                opacity: .6;
+                cursor: progress;
+            }
+            .timegem-ven-refresh__status {
+                min-height: 1.4em;
+                margin: 12px 0 0;
+            }
+            .timegem-ven-refresh__status:empty {
+                display: none;
+            }
+            .timegem-ven-refresh__reconnect:not(:empty) {
+                margin-top: 12px;
+            }
             .timegem-ven-disconnect:hover,
             .timegem-ven-disconnect:focus-visible {
                 background: black;
@@ -2774,10 +2928,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 }
             }
             .timegem-ven-profile-page__gems {
-                background: #fff;
-                color: #111;
-                padding: 28px 28px 20px;
-                border-top: 8px solid #e5fa4d;
+                
             }
             .timegem-ven-profile-page__gems h2,
             .timegem-ven-profile-page__gems .timegem-ven-profile-head h2 {
