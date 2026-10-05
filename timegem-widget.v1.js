@@ -6,6 +6,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     var agendaPath = '/agenda/';
     var TIMEGEM_USER_STORAGE_KEY = 'timegem_ven_id';
+    var TIMEGEM_VENUE_STORAGE_KEY = 'timegem_ven_venue_id';
     /** Shimmer placeholders while recommendations / profile load. Off for now. */
     var SHOW_LOADING_STATES = false;
 
@@ -65,7 +66,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     function getConfigIdFromCommand(cmd) {
         if (!cmd || cmd[0] !== 'config') return null;
         var id = cmd[1];
-        return typeof id === 'string' && id ? id : null;
+        if (typeof id === 'string' && id) return id;
+        if (id && typeof id === 'object') {
+            var fromObj = id.venue_id || id.venueId || id.id;
+            if (typeof fromObj === 'string' && fromObj) return fromObj;
+        }
+        return null;
     }
 
     /** Collect queue items from window.timegem (array) and/or timegem.q (widget stub). */
@@ -86,10 +92,67 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var items = getTimegemQueueItems();
             for (var i = 0; i < items.length; i++) {
                 var id = getConfigIdFromCommand(items[i]);
-                if (id) return id;
+                if (id) {
+                    try { localStorage.setItem(TIMEGEM_VENUE_STORAGE_KEY, id); } catch (e) {}
+                    return id;
+                }
             }
         } catch (e) {}
+        try {
+            return localStorage.getItem(TIMEGEM_VENUE_STORAGE_KEY) || null;
+        } catch (e) {}
         return null;
+    }
+
+    /**
+     * Per-venue feature flags. Missing keys default to on.
+     * likes: like button, My likes page, and the no-match event block
+     * (that block is only there so a visitor can still like the show).
+     */
+    var VENUE_OPTIONS = {
+        'a70188ca-9d8f-442e-89fb-955f231c7a54': {
+            likes: false
+        }
+    };
+
+    function venueOption(name, fallback) {
+        var id = getVenueIdFromQueue();
+        var opts = id && VENUE_OPTIONS[id];
+        if (!opts || !Object.prototype.hasOwnProperty.call(opts, name)) return fallback;
+        return opts[name];
+    }
+
+    function likesEnabled() {
+        return venueOption('likes', true) !== false;
+    }
+
+    function syncLikesFlag() {
+        try {
+            if (likesEnabled()) document.documentElement.removeAttribute('data-timegem-likes');
+            else document.documentElement.setAttribute('data-timegem-likes', '0');
+        } catch (e) {}
+        hideDisabledLikesNav();
+    }
+
+    /** Theme / WP child-page links to My likes, plus a tab built before we knew the venue. */
+    function hideDisabledLikesNav() {
+        if (likesEnabled()) return;
+        var nodes = document.querySelectorAll(
+            '#timegem-ven-tab-likes, #timegem-ven-panel-likes, a[href*="/my-likes"]'
+        );
+        Array.prototype.forEach.call(nodes, function (el) {
+            if (el.id === 'timegem-ven-panel-likes') {
+                el.hidden = true;
+                return;
+            }
+            el.style.display = 'none';
+            el.setAttribute('hidden', '');
+            var item = el.closest && (el.closest('li') || el.closest('.menu-item'));
+            if (item && item !== el) {
+                item.style.display = 'none';
+                item.setAttribute('hidden', '');
+            }
+        });
     }
 
     /** timegem_id: logged-in user profile (URL param, then localStorage). */
@@ -135,13 +198,18 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
-    /** /myrotown is a 404 in WordPress. The overlay below is the page. */
-    var PROFILE_PATH = '/myrotown';
+    /** WordPress page at /my-profile and its child slugs. */
+    var PROFILE_PATH = '/my-profile';
+    var PROFILE_MOUNT = '.article__content-block';
+
+    function normalizePathname(pathname) {
+        return (pathname || '').replace(/\/+$/, '') || '/';
+    }
 
     function isProfilePage() {
         try {
-            var path = (window.location.pathname || '').replace(/\/+$/, '') || '/';
-            return path === PROFILE_PATH;
+            var path = normalizePathname(window.location.pathname);
+            return path === PROFILE_PATH || path.indexOf(PROFILE_PATH + '/') === 0;
         } catch (e) {
             return false;
         }
@@ -463,6 +531,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
 
         if (!venueId) return;
+
+        syncLikesFlag();
 
         // A listing page needs every event (one bulk call, ~130KB). A single
         // event page needs exactly one row (~0.5KB), so ask for just that.
@@ -955,7 +1025,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var GEMS_BODY_ATTR = 'data-timegem-gems';
     var HOME_GEMS_MONTHS = 12;
     var gemsRenderId = 0;
-    var TICKETS_LABEL = 'Koop tickets';
+    var TICKETS_LABEL = 'Meer info';
     var DISCONNECT_LABEL = 'Disconnect';
 
     /** Month names follow the page's own language rather than the browser's. */
@@ -1176,7 +1246,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         insertBlockBeforeDiscoverCta(function (block) {
             var title = document.createElement('h3');
             title.className = BLOCK_CLASS + '__text';
-            title.textContent = 'These are yours gems for this month';
+            title.textContent = 'Dit zijn jouw must-sees voor de komende periode';
             block.appendChild(title);
 
             var body = document.createElement('div');
@@ -1316,10 +1386,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
 
         // Nothing matched: on a single event the visitor can still like it.
-        // The listing has no one event, so that block stays hidden.
+        // The listing has no one event, so that block stays hidden. Same when
+        // likes are off for this venue — an empty block would have no purpose.
         if (state !== 'unavailable' && matchType === 'none') {
             Array.prototype.forEach.call(blocks, function (block) {
-                if (!getSlugFromCurrentPath()) {
+                if (!getSlugFromCurrentPath() || !likesEnabled()) {
                     block.hidden = true;
                     block.innerHTML = '';
                     return;
@@ -1373,6 +1444,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     /** Like / unlike on a single event page. No-op without a connected visitor or event id. */
     function mountLikeControl(block) {
+        if (!likesEnabled()) return;
         var timegemId = getTimegemId();
         var slug = getSlugFromCurrentPath();
         var eventRow = slug && eventsBySlug[slug];
@@ -1446,12 +1518,37 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     }
 
     var PROFILE_NAV = [
-        { id: 'recommendations', label: 'My recommendations' },
-        { id: 'likes', label: 'My likes' },
-        { id: 'profile', label: 'My profile' },
-        { id: 'settings', label: 'My settings' },
-        { id: 'about', label: 'About' }
+        { id: 'recommendations', label: 'My recommendations', slug: 'my-recommendations' },
+        { id: 'settings', label: 'My settings', slug: 'my-settings' },
+        { id: 'about', label: 'About', slug: 'about', aliases: ['my-about'] }
     ];
+
+    function profileNavSlugMatches(item, slug) {
+        if (!item || !slug) return false;
+        if (item.slug === slug) return true;
+        var aliases = item.aliases || [];
+        for (var i = 0; i < aliases.length; i++) {
+            if (aliases[i] === slug) return true;
+        }
+        return false;
+    }
+
+    function profileNavItems() {
+        return PROFILE_NAV.filter(function (item) {
+            return item.id !== 'likes' || likesEnabled();
+        });
+    }
+
+    function profilePanelPath(id) {
+        var slug = '';
+        for (var i = 0; i < PROFILE_NAV.length; i++) {
+            if (PROFILE_NAV[i].id === id) {
+                slug = PROFILE_NAV[i].slug || '';
+                break;
+            }
+        }
+        return slug ? PROFILE_PATH + '/' + slug + '/' : PROFILE_PATH + '/';
+    }
 
     function appendConnectChoices(slot) {
         if (!buildConnectUrl()) {
@@ -1631,32 +1728,59 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
     }
 
-    function profilePanelFromHash() {
+    function profilePanelFromPath() {
+        var path = '/';
         var hash = '';
-        try { hash = (window.location.hash || '').replace(/^#/, ''); } catch (e) {}
-        for (var i = 0; i < PROFILE_NAV.length; i++) {
-            if (PROFILE_NAV[i].id === hash) return hash;
+        var items = profileNavItems();
+        try {
+            path = normalizePathname(window.location.pathname);
+            hash = (window.location.hash || '').replace(/^#/, '');
+        } catch (e) {}
+
+        // /my-profile and /my-profile/my-recommendations both open recommendations.
+        if (path === PROFILE_PATH) return 'recommendations';
+
+        if (path.indexOf(PROFILE_PATH + '/') === 0) {
+            var slug = path.slice(PROFILE_PATH.length + 1).split('/')[0] || '';
+            if (!slug || slug === 'my-recommendations') return 'recommendations';
+            for (var i = 0; i < items.length; i++) {
+                if (profileNavSlugMatches(items[i], slug)) return items[i].id;
+            }
         }
+
+        for (var j = 0; j < items.length; j++) {
+            if (items[j].id === hash) return hash;
+        }
+
         return 'recommendations';
     }
 
+    function getProfileMount() {
+        return document.querySelector('article ' + PROFILE_MOUNT)
+            || document.querySelector(PROFILE_MOUNT);
+    }
+
+    function renderProfilePageWhenReady(hasId, attempt) {
+        attempt = attempt || 0;
+        if (getVenueIdFromQueue() || attempt >= 20) {
+            renderProfilePage(hasId);
+            syncLikesFlag();
+            return;
+        }
+        setTimeout(function () { renderProfilePageWhenReady(hasId, attempt + 1); }, 50);
+    }
+
     /**
-     * Covers the WordPress 404 at /myrotown. A side menu switches between
-     * recommendations, profile, and settings.
+     * Fills the WordPress article on /my-profile and its child slugs. A side
+     * menu switches between recommendations, profile, and settings.
      */
     function renderProfilePage(hasId) {
-        if (!isProfilePage() || document.getElementById(PROFILE_PAGE_ID)) return;
+        var mount = getProfileMount();
+        if (!isProfilePage() || !mount || document.getElementById(PROFILE_PAGE_ID)) return;
 
         var page = document.createElement('div');
         page.id = PROFILE_PAGE_ID;
         page.className = 'timegem-ven-profile-page';
-
-        var close = document.createElement('a');
-        close.className = 'timegem-ven-profile-page__close';
-        close.href = '/';
-        close.setAttribute('aria-label', 'Close');
-        close.textContent = 'Close';
-        page.appendChild(close);
 
         var frame = document.createElement('div');
         frame.className = 'timegem-ven-profile-page__frame';
@@ -1667,7 +1791,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var nav = document.createElement('div');
         nav.className = 'timegem-ven-profile-nav';
         nav.setAttribute('role', 'tablist');
-        nav.setAttribute('aria-label', 'My Rotown');
+        nav.setAttribute('aria-label', 'My profile');
         side.appendChild(nav);
 
         var main = document.createElement('div');
@@ -1675,8 +1799,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         var panels = {};
         var tabs = [];
+        var navItems = profileNavItems();
 
-        PROFILE_NAV.forEach(function (item) {
+        navItems.forEach(function (item) {
             var panel = document.createElement('section');
             panel.className = 'timegem-ven-profile-page__panel';
             panel.id = 'timegem-ven-panel-' + item.id;
@@ -1690,8 +1815,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             main.appendChild(panel);
             panels[item.id] = panel;
 
-            var tab = document.createElement('button');
-            tab.type = 'button';
+            var tab = document.createElement('a');
+            tab.href = profilePanelPath(item.id);
             tab.className = 'timegem-ven-profile-nav__tab';
             tab.id = 'timegem-ven-tab-' + item.id;
             tab.setAttribute('role', 'tab');
@@ -1703,7 +1828,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         function selectPanel(id) {
-            PROFILE_NAV.forEach(function (item, i) {
+            if (!panels[id]) id = (navItems[0] && navItems[0].id) || 'recommendations';
+            navItems.forEach(function (item, i) {
                 var active = item.id === id;
                 tabs[i].classList.toggle('is-active', active);
                 tabs[i].setAttribute('aria-selected', active ? 'true' : 'false');
@@ -1711,14 +1837,33 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 panels[item.id].hidden = !active;
             });
             try {
-                if (window.location.hash !== '#' + id) {
-                    history.replaceState(null, '', '#' + id);
+                var next = profilePanelPath(id);
+                var here = normalizePathname(window.location.pathname);
+                var want = normalizePathname(next);
+                var hereSlug = here.indexOf(PROFILE_PATH + '/') === 0
+                    ? here.slice(PROFILE_PATH.length + 1).split('/')[0] || ''
+                    : '';
+                var item = null;
+                for (var n = 0; n < navItems.length; n++) {
+                    if (navItems[n].id === id) { item = navItems[n]; break; }
+                }
+                // Leave the current child slug if it already belongs to this panel.
+                if (id === 'recommendations' && here === PROFILE_PATH) {
+                    if (window.location.hash) history.replaceState(null, '', PROFILE_PATH + '/');
+                } else if (item && profileNavSlugMatches(item, hereSlug)) {
+                    if (window.location.hash) history.replaceState(null, '', here + '/');
+                } else if (here !== want || window.location.hash) {
+                    history.replaceState(null, '', next);
                 }
             } catch (e) {}
         }
 
         tabs.forEach(function (tab, i) {
-            tab.addEventListener('click', function () { selectPanel(PROFILE_NAV[i].id); });
+            tab.addEventListener('click', function (e) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
+                e.preventDefault();
+                selectPanel(navItems[i].id);
+            });
             tab.addEventListener('keydown', function (e) {
                 var next = null;
                 if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (i + 1) % tabs.length;
@@ -1727,7 +1872,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 else if (e.key === 'End') next = tabs.length - 1;
                 if (next === null) return;
                 e.preventDefault();
-                selectPanel(PROFILE_NAV[next].id);
+                selectPanel(navItems[next].id);
                 tabs[next].focus();
             });
         });
@@ -1741,36 +1886,43 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         panels.recommendations.appendChild(gemsBody);
 
         renderProfileSettings(panels.settings, hasId);
-        renderProfileLikes(panels.likes, hasId);
+        if (panels.likes) renderProfileLikes(panels.likes, hasId);
         renderProfileAbout(panels.about);
 
-        frame.appendChild(side);
-        frame.appendChild(main);
-        page.appendChild(frame);
-        document.body.appendChild(page);
-        document.documentElement.classList.add('timegem-ven-profile-open');
-        selectPanel(profilePanelFromHash());
+        //frame.appendChild(side);
+        //frame.appendChild(main);
+        page.appendChild(main);
+        mount.innerHTML = '';
+        mount.appendChild(page);
+        selectPanel(profilePanelFromPath());
 
-        try { document.title = 'Jouw profiel'; } catch (e) {}
+        window.addEventListener('popstate', function () {
+            if (!isProfilePage() || !document.getElementById(PROFILE_PAGE_ID)) return;
+            selectPanel(profilePanelFromPath());
+        });
 
         if (!hasId) {
-            var signedOut = document.createElement('p');
-            signedOut.textContent = 'Connect your music account under My settings to see your top artists and tracks.';
-            panels.profile.appendChild(signedOut);
+            if (panels.profile) {
+                var signedOut = document.createElement('p');
+                signedOut.textContent = 'Connect your music account under My settings to see your top artists and tracks.';
+                panels.profile.appendChild(signedOut);
+            }
             renderHomeGemsMessage('Connect to see which shows match your taste this month.');
             return;
         }
 
-        var loading = document.createElement('p');
-        loading.className = 'timegem-ven-fineprint';
-        loading.textContent = 'Loading your profile…';
-        panels.profile.appendChild(loading);
+        if (panels.profile) {
+            var loading = document.createElement('p');
+            loading.className = 'timegem-ven-fineprint';
+            loading.textContent = 'Loading your profile…';
+            panels.profile.appendChild(loading);
+        }
         renderHomeGemsMessage('Loading your gems…');
 
         var timegemId = getTimegemId();
         var cached = profileCache[timegemId];
         if (cached) {
-            renderProfile(panels.profile, cached, { disconnect: false, featured: true });
+            if (panels.profile) renderProfile(panels.profile, cached, { disconnect: false, featured: true });
             return;
         }
 
@@ -1810,7 +1962,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var cta = e.target && e.target.closest ? e.target.closest(CTA_SELECTOR) : null;
             if (!cta) return;
 
-            // Logged in, "Your profile" is a real link to /myrotown.
+            // Logged in, "Your profile" is a real link to /my-profile.
             if (cta.matches(NAV_CTA_SELECTOR) && getTimegemId()) return;
 
             // The discover CTA is hidden once we have a timegem_id, but don't
@@ -1849,7 +2001,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         clearTeaseIcons();
         var hasId = syncDiscoverCta();
         syncNavCtaLabel(hasId);
-        if (isProfilePage()) renderProfilePage(hasId);
+        syncLikesFlag();
+        if (isProfilePage()) renderProfilePageWhenReady(hasId);
         else {
             renderHomeGemsBlock(hasId);
             renderAgendaBlock(hasId);
@@ -2467,67 +2620,24 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             html[data-timegem-has-id] .cta-discover {
                 display: none !important;
             }
-            html.timegem-ven-profile-open,
-            html.timegem-ven-profile-open body {
-                overflow: hidden;
+            html[data-timegem-likes="0"] #timegem-ven-tab-likes,
+            html[data-timegem-likes="0"] #timegem-ven-panel-likes,
+            html[data-timegem-likes="0"] a[href*="/my-likes"] {
+                display: none !important;
             }
             .timegem-ven-profile-page {
-                position: fixed;
-                inset: 0;
-                z-index: 100000;
-                overflow: auto;
-                background: #0c0c0c;
-                color: #fff;
-                -webkit-overflow-scrolling: touch;
-            }
-            .timegem-ven-profile-page__close {
-                position: fixed;
-                top: 0;
-                right: 24px;
-                z-index: 2;
-                background: #e5fa4d;
-                color: #111;
-                padding: 14px 16px 0;
-                font-size: 13px;
-                font-weight: 800;
-                letter-spacing: .06em;
-                line-height: 1;
-                text-transform: uppercase;
-                text-decoration: none;
-            }
-            .timegem-ven-profile-page__close:after {
-                content: "";
-                clip-path: polygon(50% 100%, 0 0, 100% 0);
-                background-color: #e5fa4d;
-                width: 100%;
-                height: 18px;
-                position: absolute;
-                bottom: calc(.5px - 18px);
-                left: 0;
-            }
-            .timegem-ven-profile-page__close:hover,
-            .timegem-ven-profile-page__close:focus-visible {
-                background: red;
-                color: #fff;
-            }
-            .timegem-ven-profile-page__close:hover:after,
-            .timegem-ven-profile-page__close:focus-visible:after {
-                background-color: red;
+                color: inherit;
             }
             .timegem-ven-profile-page__frame {
                 display: grid;
                 grid-template-columns: 240px minmax(0, 1fr);
-                column-gap: 80px;
-                max-width: 1180px;
-                margin: 0 auto;
-                padding: 96px 96px 120px;
+                column-gap: 48px;
                 box-sizing: border-box;
             }
             .timegem-ven-profile-page__side {
                 position: sticky;
-                top: 96px;
+                top: 24px;
                 align-self: start;
-                padding-top: 8px;
             }
             .timegem-ven-profile-nav {
                 display: flex;
@@ -2539,10 +2649,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-profile-nav__tab {
                 -webkit-appearance: none;
                 appearance: none;
+                display: block;
                 background: transparent;
-                color: #fff;
+                color: inherit;
                 border: 0;
                 text-align: left;
+                text-decoration: none;
                 font-family: 'ABC Gravity', sans-serif;
                 font-size: 24px;
                 font-weight: 800;
@@ -2552,7 +2664,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 cursor: pointer;
             }
             .timegem-ven-profile-nav__tab:hover {
-                background: rgba(255, 255, 255, .08);
+                background: rgba(0, 0, 0, .06);
             }
             .timegem-ven-profile-nav__tab.is-active {
                 background: #e5fa4d;
@@ -2571,7 +2683,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-profile-page__identity h2,
             .timegem-ven-profile-page__panel > h2 {
                 margin: 0 0 20px;
-                color: #e5fa4d;
                 font-size: 40px;
                 line-height: 1;
                 text-transform: uppercase;
@@ -2690,7 +2801,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 .timegem-ven-profile-page__frame {
                     grid-template-columns: 1fr;
                     column-gap: 0;
-                    padding: 40px 24px 72px;
                 }
                 .timegem-ven-profile-page__side {
                     position: static;
@@ -2713,6 +2823,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     // Set the flag before waiting on the DOM: <html> already exists, so the hide
     // rule can apply the moment the stylesheet lands.
     syncDiscoverCta();
+    syncLikesFlag();
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
