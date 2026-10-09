@@ -626,10 +626,30 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var CONNECT_PORTAL_URL = 'https://my.personaltimetable.com/';
     // dsp values the portal understands ('spotify' | 'apple'). A provider the
     // venue has not enabled in connect_providers lands on the normal picker.
+    var CONNECT_ICONS = {
+        spotify:
+            '<svg class="timegem-ven-connect__icon" viewBox="0 0 236.05 225.25" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
+                '<path fill="currentColor" d="m122.37,3.31C61.99.91,11.1,47.91,8.71,108.29c-2.4,60.38,44.61,111.26,104.98,113.66,60.38,2.4,111.26-44.6,113.66-104.98C229.74,56.59,182.74,5.7,122.37,3.31Zm46.18,160.28c-1.36,2.4-4.01,3.6-6.59,3.24-.79-.11-1.58-.37-2.32-.79-14.46-8.23-30.22-13.59-46.84-15.93-16.62-2.34-33.25-1.53-49.42,2.4-3.51.85-7.04-1.3-7.89-4.81-.85-3.51,1.3-7.04,4.81-7.89,17.78-4.32,36.06-5.21,54.32-2.64,18.26,2.57,35.58,8.46,51.49,17.51,3.13,1.79,4.23,5.77,2.45,8.91Zm14.38-28.72c-2.23,4.12-7.39,5.66-11.51,3.43-16.92-9.15-35.24-15.16-54.45-17.86-19.21-2.7-38.47-1.97-57.26,2.16-1.02.22-2.03.26-3.01.12-3.41-.48-6.33-3.02-7.11-6.59-1.01-4.58,1.89-9.11,6.47-10.12,20.77-4.57,42.06-5.38,63.28-2.4,21.21,2.98,41.46,9.62,60.16,19.74,4.13,2.23,5.66,7.38,3.43,11.51Zm15.94-32.38c-2.1,4.04-6.47,6.13-10.73,5.53-1.15-.16-2.28-.52-3.37-1.08-19.7-10.25-40.92-17.02-63.07-20.13-22.15-3.11-44.42-2.45-66.18,1.97-5.66,1.15-11.17-2.51-12.32-8.16-1.15-5.66,2.51-11.17,8.16-12.32,24.1-4.89,48.74-5.62,73.25-2.18,24.51,3.44,47.99,10.94,69.81,22.29,5.12,2.66,7.11,8.97,4.45,14.09Z"/>' +
+            '</svg>',
+        apple:
+            '<svg class="timegem-ven-connect__icon" viewBox="0 0 73 73" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
+                '<path fill="currentColor" fill-rule="evenodd" d="M72,19.9v-2.2c0-1.6,0-3.2-.4-4.7-.3-1.6-.8-3.1-1.5-4.5-.7-1.4-1.7-2.7-2.8-3.8-1.1-1.1-2.4-2.1-3.8-2.8-1.4-.7-2.9-1.2-4.5-1.5C57.4,0,55.8,0,54.3,0H17.7C16.1,0,14.5,0,13,.4c-1.6.3-3.1.8-4.5,1.5-1.4.7-2.7,1.7-3.8,2.8s-2.1,2.4-2.8,3.8c-.7,1.4-1.2,2.9-1.5,4.5C0,14.6,0,16.2,0,17.7v36.5C0,55.8,0,57.4.4,58.9c.3,1.6.8,3.1,1.5,4.5s1.7,2.7,2.8,3.8,2.4,2.1,3.8,2.8c1.4.7,2.9,1.2,4.5,1.5,1.6.3,3.2.4,4.7.4h36.5c1.6,0,3.2,0,4.7-.4,1.6-.3,3.1-.8,4.5-1.5s2.7-1.7,3.8-2.8,2.1-2.4,2.8-3.8c.7-1.4,1.2-2.9,1.5-4.5s.4-3.2.4-4.7V19.9h0ZM52.7,46.8c0,.9,0,1.7-.2,2.7-.2.9-.5,1.7-1,2.5s-1.2,1.4-2,1.8c-.8.5-1.6.7-2.5.9-1.7.3-2.8.4-3.9.2-1-.2-1.9-.7-2.6-1.3-1-1-1.7-2.2-1.8-3.6-.2-1.6.4-3.2,1.5-4.5.6-.6,1.3-1.1,2.3-1.5s2.2-.7,4-1c.5,0,.9-.2,1.4-.3.6,0,1.1-.3,1.6-.8.4-.5.4-1.2.4-1.8v-15.9c0-1.2-.5-1.5-1.7-1.3-.8.2-18.6,3.8-18.6,3.8-1,.2-1.4.6-1.4,1.8v23.2c0,.9,0,1.7-.2,2.7-.2.9-.5,1.7-1,2.5s-1.2,1.4-2,1.8c-.8.5-1.6.7-2.5.9-1.7.3-2.8.4-3.9.2-1-.2-1.9-.7-2.6-1.3-1-1-1.6-2.2-1.8-3.6-.2-1.6.3-3.2,1.5-4.5.6-.6,1.3-1.1,2.3-1.5s2.2-.7,4-1c.5,0,.9-.2,1.4-.3.6,0,1.1-.3,1.6-.8s.5-1.1.5-1.8v-27.5c0-.6.3-1,.7-1.4.3-.3.8-.5,1.3-.6h0l21.4-4.3c.2,0,1.7-.3,1.9-.3,1.2-.1,1.8.7,1.8,1.9v34h0Z"/>' +
+            '</svg>'
+    };
     var CONNECT_PROVIDERS = [
         { dsp: 'spotify', label: 'Connect with Spotify' },
         { dsp: 'apple', label: 'Connect with Apple Music' }
     ];
+
+    /** One connect button, styled like the onboarding .spotify-connect-btn (icon + label). */
+    function buildConnectButton(provider) {
+        var link = document.createElement('a');
+        link.className = 'timegem-ven-connect is-' + provider.dsp;
+        link.href = buildConnectUrl(provider.dsp);
+        link.innerHTML = (CONNECT_ICONS[provider.dsp] || '') + '<span></span>';
+        link.querySelector('span').textContent = provider.label;
+        return link;
+    }
     var profileCache = {};
     var dialogRenderToken = 0;
 
@@ -861,6 +881,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var footer = document.createElement('div');
         footer.className = 'timegem-ven-profile-foot';
 
+        var heading = document.createElement('p');
+        heading.textContent = 'Danger zone';
+        footer.appendChild(heading);
+
+        var copy = document.createElement('p');
+        copy.textContent = 'Wil je je account ontkoppelen? En geen mooie concerttips meer krijgen? Klik dan hieronder op ontkoppelen.';
+        footer.appendChild(copy);
+
         var disconnect = document.createElement('button');
         disconnect.type = 'button';
         disconnect.className = 'timegem-ven-disconnect';
@@ -881,7 +909,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         // Logged-out "connect" state borrows the Rotown onboarding look
         // (yellow panel with a notch cut out at the bottom).
-        dialog.classList.toggle('is-connect', !hasId);
+        setDialogConnectState(dialog, !hasId);
 
         // Every render gets a token. A slow fetch that resolves after the dialog
         // was closed and reopened must not paint over the newer contents.
@@ -940,12 +968,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         title.textContent = 'Ontdek jouw must-sees';
         body.appendChild(title);
 
-        var hook = document.createElement('p');
-        hook.className = 'timegem-ven-hook';
-        hook.appendChild(document.createTextNode('Wil je nooit meer een tof concert missen dat'));
-        hook.appendChild(document.createElement('br'));
-        hook.appendChild(document.createTextNode('écht bij je past?'));
-        body.appendChild(hook);
+        //var hook = document.createElement('p');
+        //hook.className = 'timegem-ven-hook';
+        //hook.appendChild(document.createTextNode('Wil je nooit meer een tof concert missen dat'));
+        //hook.appendChild(document.createElement('br'));
+        //hook.appendChild(document.createTextNode('écht bij je past?'));
+       // body.appendChild(hook);
 
         intro.textContent = 'Koppel je Apple Music of Spotify aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. Op basis van jouw luistergedrag krijg je suggesties die perfect aansluiten bij jouw smaak, van je favoriete artiesten tot verborgen parels die je nog niet kende.';
         body.appendChild(intro);
@@ -966,11 +994,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         choices.className = 'timegem-ven-connect-choices';
 
         CONNECT_PROVIDERS.forEach(function (provider) {
-            var link = document.createElement('a');
-            link.className = 'timegem-ven-connect is-' + provider.dsp;
-            link.href = buildConnectUrl(provider.dsp);
-            link.textContent = provider.label;
-            choices.appendChild(link);
+            choices.appendChild(buildConnectButton(provider));
         });
 
         body.appendChild(choices);
@@ -1001,9 +1025,19 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return document.getElementById(DIALOG_ID) || buildDialog();
     }
 
+    /** Mirrors the connect state on the <dialog> and its inner box. */
+    function setDialogConnectState(dialog, isConnect) {
+        if (!dialog) return;
+        dialog.classList.toggle('is-connect', !!isConnect);
+        var inner = dialog.querySelector('.timegem-ven-dialog-inner');
+        if (inner) inner.classList.toggle('is-connect', !!isConnect);
+    }
+
     function openDialog() {
         var dialog = getDialog();
-        renderDialogBody(!!getTimegemId());
+        var hasId = !!getTimegemId();
+        setDialogConnectState(dialog, !hasId);
+        renderDialogBody(hasId);
         if (dialog.open) return;
         if (typeof dialog.showModal === 'function') dialog.showModal(); // Escape closes it for free
         else dialog.setAttribute('open', '');
@@ -1014,6 +1048,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!dialog) return;
         if (typeof dialog.close === 'function') dialog.close();
         else dialog.removeAttribute('open');
+        setDialogConnectState(dialog, false);
     }
 
     /**
@@ -1705,14 +1740,40 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
     }
 
-    /** Red dot on "Your profile" when Spotify data is older than a month. */
-    function applyProfileFreshness(data) {
+    function currentProfileUpdatedAt(data) {
         var fromApi = profileUpdatedFromData(data);
+        if (!fromApi && getTimegemId()) {
+            fromApi = profileUpdatedFromData(profileCache[getTimegemId()]);
+        }
         var stored = readStoredProfileUpdated();
         var when = fromApi;
         if (stored && (!when || stored.getTime() > when.getTime())) when = stored;
+        return when;
+    }
+
+    function lastUpdateCopy(date) {
+        if (!date) return 'Laatste update is onbekend';
+        return 'Laatste update is ' + date.toLocaleDateString(pageLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+    }
+
+    function paintLastUpdateLine(date) {
+        var lines = document.querySelectorAll('.timegem-ven-refresh__updated');
+        var copy = lastUpdateCopy(date);
+        Array.prototype.forEach.call(lines, function (el) {
+            el.textContent = copy;
+        });
+    }
+
+    /** Red dot on "Your profile" when Spotify data is older than a month. */
+    function applyProfileFreshness(data) {
+        var when = currentProfileUpdatedAt(data);
         if (when) writeStoredProfileUpdated(when);
         syncNavCtaStaleDot(isOlderThanOneMonth(when));
+        paintLastUpdateLine(when);
     }
 
     function loadProfileFreshness() {
@@ -1788,11 +1849,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var choices = document.createElement('div');
         choices.className = 'timegem-ven-connect-choices';
         CONNECT_PROVIDERS.forEach(function (provider) {
-            var link = document.createElement('a');
-            link.className = 'timegem-ven-connect is-' + provider.dsp;
-            link.href = buildConnectUrl(provider.dsp);
-            link.textContent = provider.label;
-            choices.appendChild(link);
+            choices.appendChild(buildConnectButton(provider));
         });
         slot.appendChild(choices);
     }
@@ -1864,6 +1921,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var text = document.createElement('p');
         text.textContent = 'Listened to new music lately? Refresh to update your top artists, tracks and recommendations with your latest Spotify data.';
         wrap.appendChild(text);
+
+        var updated = document.createElement('p');
+        updated.className = 'timegem-ven-refresh__updated';
+        updated.textContent = lastUpdateCopy(currentProfileUpdatedAt());
+        wrap.appendChild(updated);
 
         var button = document.createElement('button');
         button.type = 'button';
@@ -2466,31 +2528,57 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-dialog-inner a {
                 color: greenyellow;
             }
+            /* Connect buttons: same look as the onboarding .spotify-connect-btn */
             .timegem-ven-connect {
-                display: inline-block;
-                background: greenyellow;
-                color: #000 !important;
-                padding: 14px 22px;
-                margin: 6px 0 16px;
-                text-decoration: none;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                flex: 1 1 0;
+                min-width: 0;
+                box-sizing: border-box;
+                padding: 8px 12px;
+                margin: 0;
+                background: #000;
+                color: white !important;
+                font-family: 'ABC Gravity', sans-serif;
                 font-weight: 800;
+                font-size: 24px;
+                line-height: 0.8;
+                min-height: 48px;
+                text-decoration: none;
                 text-transform: uppercase;
                 letter-spacing: .02em;
+                text-align: left;
+                border: none;
+                border-radius: 0;
+                cursor: pointer;
+                transition: none;
+            }
+            .timegem-ven-connect:hover {
+                background: red;
+                color: #fff !important;
+                text-decoration: none;
+            }
+            .timegem-ven-connect__icon {
+                width: 32px;
+                height: 32px;
+                flex: none;
+                display: block;
+                color: white;
+            }
+            .timegem-ven-connect:hover .timegem-ven-connect__icon {
+                color: #fff;
             }
             .timegem-ven-connect-choices {
                 display: flex;
-                flex-wrap: wrap;
-                gap: 10px;
-                margin: 6px 0 16px;
-            }
-            .timegem-ven-connect-choices .timegem-ven-connect {
-                margin: 0;
-            }
-            .timegem-ven-connect.is-apple {
-                background: #fff;
-            }
-            .timegem-ven-connect:hover {
-                background: #fff;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: stretch;
+                justify-content: space-between;
+                gap: 16px;
+                margin: 16px 0;
             }
             .timegem-ven-fineprint {
                 font-size: 12px;
@@ -2518,9 +2606,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                     0 0,
                     100% 0,
                     100% calc(100% - 56px),
-                    calc(50% + 56px) calc(100% - 56px),
+                    calc(50% + 48px) calc(100% - 56px),
                     50% calc(100% - 16px),
-                    calc(50% - 56px) calc(100% - 56px),
+                    calc(50% - 48px) calc(100% - 56px),
                     0 calc(100% - 56px)
                 );
                 pointer-events: none;
@@ -2540,18 +2628,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner h2,
             .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner a {
                 color: #000;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-connect-choices {
-                justify-content: center;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-connect,
-            .timegem-ven-dialog.is-connect .timegem-ven-connect.is-apple {
-                background: #000;
-                color: #e5fa4d !important;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-connect:hover {
-                background: #111;
-                color: #fff !important;
             }
             .timegem-ven-profile-head {
                 display: flex;
@@ -2640,9 +2716,22 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             .timegem-ven-profile-foot {
                 margin-top: 22px;
-                padding-top: 16px;
-                border-top: 1px solid rgba(255, 255, 255, .15);
+                
+                padding:16px;
+                background: #FF000020;
             }
+
+            .timegem-ven-profile-foot p:first-child {
+                font-size: 14px;
+                text-transform: uppercase;
+                color:red;
+                margin-bottom: 0;
+            }
+
+            .timegem-ven-profile-foot p:last-child {
+                
+            }
+                
             .timegem-ven-disconnect {
                 -webkit-appearance: none;
                 appearance: none;
@@ -2661,9 +2750,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             .timegem-ven-refresh {
                 margin: 0 0 24px;
+                background: white;
+                padding: 16px;
             }
             .timegem-ven-refresh p {
-                margin: 0 0 12px;
+                margin: 0 0 24px;
             }
             .timegem-ven-refresh__button {
                 -webkit-appearance: none;
@@ -3318,12 +3409,41 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 color: #111;
                 border-color: rgba(0, 0, 0, .25);
             }
+
+ .timegem-ven-profile-page__gems .timegem-ven-disconnect:hover {
+                color: white;
+                
+            }
             .timegem-ven-profile-page__gems .timegem-ven-tab.is-active {
                 background: #000;
                 color: #fff;
             }
             .timegem-ven-profile-page__gems .timegem-ven-gem {
                 border-top-color: rgba(0, 0, 0, .12);
+            }
+            @media (max-width: 640px) {
+                .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
+                    padding: 28px 24px 56px;
+                }
+                .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
+                    clip-path: polygon(
+                        0 0,
+                        100% 0,
+                        100% calc(100% - 48px),
+                        calc(50% + 48px) calc(100% - 48px),
+                        50% calc(100% - 16px),
+                        calc(50% - 48px) calc(100% - 48px),
+                        0 calc(100% - 48px)
+                    );
+                }
+                .timegem-ven-connect-choices {
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .timegem-ven-connect {
+                    flex: none;
+                    width: 100%;
+                }
             }
             @media (max-width: 860px) {
                 .timegem-ven-profile-page__frame {
