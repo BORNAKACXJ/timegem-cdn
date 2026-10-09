@@ -7,6 +7,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var agendaPath = '/agenda/';
     var TIMEGEM_USER_STORAGE_KEY = 'timegem_ven_id';
     var TIMEGEM_VENUE_STORAGE_KEY = 'timegem_ven_venue_id';
+    var TIMEGEM_PROFILE_UPDATED_KEY = 'timegem_ven_profile_updated';
+    var CTA_STALE_DOT_CLASS = 'timegem-ven-cta-dot';
     /** Shimmer placeholders while recommendations / profile load. Off for now. */
     var SHOW_LOADING_STATES = false;
 
@@ -110,7 +112,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * (that block is only there so a visitor can still like the show).
      */
     var VENUE_OPTIONS = {
-        'a70188ca-9d8f-442e-89fb-955f231c7a54': {
+        '2c3e7f89-3813-4e26-8e5a-2bcc97e4f762': {
             likes: false
         }
     };
@@ -759,7 +761,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * without us having to unpick each by hand.
      */
     function disconnectTimegem() {
-        try { localStorage.removeItem(TIMEGEM_USER_STORAGE_KEY); } catch (e) {}
+        try {
+            localStorage.removeItem(TIMEGEM_USER_STORAGE_KEY);
+            localStorage.removeItem(TIMEGEM_PROFILE_UPDATED_KEY);
+        } catch (e) {}
         cacheClear();
 
         try {
@@ -874,6 +879,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         body.innerHTML = '';
 
+        // Logged-out "connect" state borrows the Rotown onboarding look
+        // (yellow panel with a notch cut out at the bottom).
+        dialog.classList.toggle('is-connect', !hasId);
+
         // Every render gets a token. A slow fetch that resolves after the dialog
         // was closed and reopened must not paint over the newer contents.
         var token = ++dialogRenderToken;
@@ -921,6 +930,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 }
 
                 profileCache[timegemId] = data;
+                applyProfileFreshness(data);
                 renderProfile(body, data);
             });
 
@@ -1117,6 +1127,23 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         body.appendChild(line);
     }
 
+    function buildGemDate(date, locale) {
+        var wrap = document.createElement('span');
+        wrap.className = 'timegem-ven-gem__date';
+
+        var num = document.createElement('span');
+        num.className = 'timegem-ven-gem__day';
+        num.textContent = date.toLocaleDateString(locale, { day: 'numeric' });
+        wrap.appendChild(num);
+
+        var month = document.createElement('span');
+        month.className = 'timegem-ven-gem__month';
+        month.textContent = date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '');
+        wrap.appendChild(month);
+
+        return wrap;
+    }
+
     function buildGemList(month, locale) {
         var list = document.createElement('ul');
         list.className = 'timegem-ven-month__list';
@@ -1126,10 +1153,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             item.className = 'timegem-ven-gem';
             item.setAttribute('data-match', String(gem.rec.matchType).toLowerCase());
 
-            var day = document.createElement('span');
-            day.className = 'timegem-ven-gem__date';
-            day.textContent = gem.date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-            item.appendChild(day);
+            item.appendChild(buildGemDate(gem.date, locale));
 
             var symbol = buildMatchSymbol(gem.rec.matchType);
             if (symbol) item.appendChild(symbol);
@@ -1273,15 +1297,21 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!hasId || !isHomePage()) return;
 
         insertBlockBeforeDiscoverCta(function (block) {
+            var wrap = document.createElement('div');
+            wrap.className = 'timegem-ven-block_wrapper';
+
             var title = document.createElement('h3');
             title.className = BLOCK_CLASS + '__text';
             title.textContent = 'Dit zijn jouw must-sees voor de komende periode';
-            block.appendChild(title);
+            wrap.appendChild(title);
 
             var body = document.createElement('div');
             body.className = BLOCK_CLASS + '__body';
             body.setAttribute(GEMS_BODY_ATTR, '');
-            block.appendChild(body);
+            wrap.appendChild(body);
+
+            block.appendChild(wrap);
+            mountBlockHelp(block);
         });
     }
 
@@ -1326,6 +1356,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 line.className = BLOCK_CLASS + '__text';
                 line.textContent = 'Your matches are marked in the list below.';
                 block.appendChild(line);
+                mountBlockHelp(block);
             }
         });
     }
@@ -1336,9 +1367,88 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * means the same thing as matchType 'none'.
      */
     var MATCH_ITEM_LIMIT = 6;
+    var MATCH_ARTIST_LIMIT = 3;
     var SKELETON_BADGE_CLASS = 'timegem-ven-badge-loading';
     /** Never leave a skeleton up forever if a request hangs. */
     var SKELETON_TIMEOUT_MS = 12000;
+    var blockHelpDismissBound = false;
+
+    function bindBlockHelpDismiss() {
+        if (blockHelpDismissBound) return;
+        blockHelpDismissBound = true;
+
+        document.addEventListener('click', function (e) {
+            var open = document.querySelectorAll('.' + BLOCK_CLASS + '__help.is-open');
+            if (!open.length) return;
+            Array.prototype.forEach.call(open, function (el) {
+                if (el.contains(e.target)) return;
+                el.classList.remove('is-open');
+                var btn = el.querySelector('.' + BLOCK_CLASS + '__help-btn');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' && e.keyCode !== 27) return;
+            var open = document.querySelectorAll('.' + BLOCK_CLASS + '__help.is-open');
+            Array.prototype.forEach.call(open, function (el) {
+                el.classList.remove('is-open');
+                var btn = el.querySelector('.' + BLOCK_CLASS + '__help-btn');
+                if (btn) {
+                    btn.setAttribute('aria-expanded', 'false');
+                    btn.focus();
+                }
+            });
+        });
+    }
+
+    /**
+     * "?" in the top-right of the yellow block. Hover/focus/click opens a
+     * short note with a link to the About page.
+     */
+    function mountBlockHelp(block) {
+        if (!block || block.querySelector('.' + BLOCK_CLASS + '__help')) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = BLOCK_CLASS + '__help';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = BLOCK_CLASS + '__help-btn';
+        btn.setAttribute('aria-label', 'Meer over deze match');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.textContent = '?';
+
+        var tip = document.createElement('div');
+        tip.className = BLOCK_CLASS + '__help-tip';
+        tip.setAttribute('role', 'tooltip');
+
+        var copy = document.createElement('p');
+        copy.textContent = 'Dit is gebaseerd op jouw Spotify luistergedrag.';
+        tip.appendChild(copy);
+
+        var more = document.createElement('a');
+        more.className = BLOCK_CLASS + '__help-link';
+        more.href = PROFILE_PATH + '/about/';
+        more.textContent = 'lees meer';
+        tip.appendChild(more);
+
+        wrap.appendChild(btn);
+        wrap.appendChild(tip);
+
+        if (block.firstChild) block.insertBefore(wrap, block.firstChild);
+        else block.appendChild(wrap);
+
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var open = !wrap.classList.contains('is-open');
+            wrap.classList.toggle('is-open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+
+        bindBlockHelpDismiss();
+    }
 
     /**
      * The "why" behind a match, following the timetable's split: genre matches
@@ -1353,6 +1463,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!detailed.length) return null;
 
         var isGenre = detailed.every(function (m) { return m && m.type; });
+        var limit = isGenre ? MATCH_ITEM_LIMIT : MATCH_ARTIST_LIMIT;
 
         var fragment = document.createDocumentFragment();
 
@@ -1364,7 +1475,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var list = document.createElement('div');
         list.className = BLOCK_CLASS + '__matches ' + (isGenre ? 'is-genres' : 'is-artists');
 
-        detailed.slice(0, MATCH_ITEM_LIMIT).forEach(function (match) {
+        detailed.slice(0, limit).forEach(function (match) {
             var item = document.createElement('span');
             item.className = BLOCK_CLASS + '__match';
 
@@ -1386,10 +1497,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             list.appendChild(item);
         });
 
-        if (detailed.length > MATCH_ITEM_LIMIT) {
+        if (isGenre && detailed.length > limit) {
             var more = document.createElement('span');
             more.className = BLOCK_CLASS + '__match is-more';
-            more.textContent = '+' + (detailed.length - MATCH_ITEM_LIMIT);
+            more.textContent = '+' + (detailed.length - limit);
             list.appendChild(more);
         }
 
@@ -1427,6 +1538,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 block.hidden = false;
                 block.removeAttribute('data-match');
                 block.innerHTML = '';
+                mountBlockHelp(block);
                 mountLikeControl(block);
             });
             return;
@@ -1436,11 +1548,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             block.hidden = false;
             block.setAttribute('data-match', matchType);
             block.innerHTML = '';
-
-            var line = document.createElement('h3');
-            line.className = BLOCK_CLASS + '__text';
-            line.appendChild(document.createTextNode(headline));
-            block.appendChild(line);
+            mountBlockHelp(block);
 
             // Built per block: one node cannot live in two places.
             var sym = showSymbol ? buildMatchSymbol(matchType) : null;
@@ -1449,11 +1557,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 block.appendChild(sym);
             }
 
+            var line = document.createElement('h3');
+            line.className = BLOCK_CLASS + '__text';
+            line.appendChild(document.createTextNode(headline));
+            block.appendChild(line);
+
             var matchDetailNodes = state === 'unavailable' ? null : buildMatchDetails(recommendation);
 
             if (matchDetailNodes) {
-                // Keep the API's own wording as the tooltip.
-                if (details.length) block.title = details.join(' \u00B7 ');
                 block.appendChild(matchDetailNodes);
             } else if (details.length) {
                 // No structured matches (older payloads): show the text reasons.
@@ -1536,6 +1647,92 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 }
                 cta.setAttribute('href', hasId ? PROFILE_PATH : cta.getAttribute(ORIGINAL_HREF_ATTR));
             }
+        });
+        if (!hasId) syncNavCtaStaleDot(false);
+        else loadProfileFreshness();
+    }
+
+    function readStoredProfileUpdated() {
+        try {
+            var raw = localStorage.getItem(TIMEGEM_PROFILE_UPDATED_KEY);
+            if (!raw) return null;
+            var date = new Date(raw);
+            return isNaN(date.getTime()) ? null : date;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function writeStoredProfileUpdated(date) {
+        try {
+            localStorage.setItem(TIMEGEM_PROFILE_UPDATED_KEY, (date || new Date()).toISOString());
+        } catch (e) {}
+    }
+
+    function profileUpdatedFromData(data) {
+        var profile = data && data.profile;
+        if (!profile) return null;
+        var raw = profile.updated_at || profile.updatedAt || profile.created_at || profile.createdAt;
+        if (!raw) return null;
+        var date = new Date(raw);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
+    function isOlderThanOneMonth(date) {
+        if (!date) return false;
+        var cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - 1);
+        return date.getTime() < cutoff.getTime();
+    }
+
+    function syncNavCtaStaleDot(stale) {
+        var ctas = document.querySelectorAll(NAV_CTA_SELECTOR);
+        Array.prototype.forEach.call(ctas, function (cta) {
+            var dot = cta.querySelector('.' + CTA_STALE_DOT_CLASS);
+            if (!stale) {
+                if (dot && dot.parentNode) dot.parentNode.removeChild(dot);
+                cta.removeAttribute('data-timegem-stale');
+                if (cta.getAttribute('title') === 'Update your profile') cta.removeAttribute('title');
+                return;
+            }
+            cta.setAttribute('data-timegem-stale', '');
+            cta.setAttribute('title', 'Update your profile');
+            if (dot) return;
+            dot = document.createElement('span');
+            dot.className = CTA_STALE_DOT_CLASS;
+            dot.setAttribute('aria-hidden', 'true');
+            cta.appendChild(dot);
+        });
+    }
+
+    /** Red dot on "Your profile" when Spotify data is older than a month. */
+    function applyProfileFreshness(data) {
+        var fromApi = profileUpdatedFromData(data);
+        var stored = readStoredProfileUpdated();
+        var when = fromApi;
+        if (stored && (!when || stored.getTime() > when.getTime())) when = stored;
+        if (when) writeStoredProfileUpdated(when);
+        syncNavCtaStaleDot(isOlderThanOneMonth(when));
+    }
+
+    function loadProfileFreshness() {
+        var timegemId = getTimegemId();
+        if (!timegemId) {
+            syncNavCtaStaleDot(false);
+            return;
+        }
+
+        if (getTimegemIdFromUrl()) writeStoredProfileUpdated(new Date());
+
+        var cached = profileCache[timegemId];
+        if (cached) {
+            applyProfileFreshness(cached);
+            return;
+        }
+
+        fetchVenueProfile(timegemId, getVenueIdFromQueue()).then(function (data) {
+            if (data && data.profile) profileCache[timegemId] = data;
+            applyProfileFreshness(data);
         });
     }
 
@@ -1702,6 +1899,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 if (result.ok && result.data && result.data.profile) {
                     // Stored data changed, so every cached derivation of it is stale.
                     profileCache[timegemId] = result.data;
+                    writeStoredProfileUpdated(new Date());
+                    applyProfileFreshness(result.data);
                     cacheClear(CACHE_PREFIX + timegemId + ':');
 
                     var slot = profileIdentity();
@@ -1774,10 +1973,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
             var when = dateValue ? new Date(dateValue) : null;
             if (when && !isNaN(when.getTime())) {
-                var day = document.createElement('span');
-                day.className = 'timegem-ven-gem__date';
-                day.textContent = when.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
-                item.appendChild(day);
+                item.appendChild(buildGemDate(when, locale));
             }
 
             var link = document.createElement('a');
@@ -2052,6 +2248,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 return;
             }
             profileCache[timegemId] = data;
+            applyProfileFreshness(data);
             renderProfile(slot, data, { disconnect: false, featured: true });
         });
     }
@@ -2202,8 +2399,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
 
             .timegem-ven-icon {
-                width: .62em;
-                height: 1.28em;
+                width: .82em;
+                height: 1.48em;
                 display: block;
                 flex: none;
             }
@@ -2304,6 +2501,57 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-dialog-body {
                 max-height: 70vh;
                 overflow-y: auto;
+            }
+
+            /* Connect state: Rotown onboarding .step__wrapper look */
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
+                padding: 40px 40px 80px;
+                color: #000;
+                text-align: center;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: #e5fa4d;
+                clip-path: polygon(
+                    0 0,
+                    100% 0,
+                    100% calc(100% - 56px),
+                    calc(50% + 56px) calc(100% - 56px),
+                    50% calc(100% - 16px),
+                    calc(50% - 56px) calc(100% - 56px),
+                    0 calc(100% - 56px)
+                );
+                pointer-events: none;
+                z-index: 0;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-body {
+                position: relative;
+                z-index: 1;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-close {
+                z-index: 2;
+                color: #000;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-close:hover {
+                color: #fff;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner h2,
+            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner a {
+                color: #000;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-connect-choices {
+                justify-content: center;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-connect,
+            .timegem-ven-dialog.is-connect .timegem-ven-connect.is-apple {
+                background: #000;
+                color: #e5fa4d !important;
+            }
+            .timegem-ven-dialog.is-connect .timegem-ven-connect:hover {
+                background: #111;
+                color: #fff !important;
             }
             .timegem-ven-profile-head {
                 display: flex;
@@ -2465,13 +2713,92 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .cta-discover {
                 cursor: pointer;
             }
+            nav .button-cta {
+                position: relative;
+            }
+            .timegem-ven-cta-dot {
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: red;
+                pointer-events: none;
+            }
+            .timegem-ven-block_wrapper {
+                max-width: 1320px;
+                margin: 0 auto;
+            }
             .timegem-ven-block {
-                background: white;
+                position: relative;
+                background: #e5fa4d;
                 color: black;
-                padding: 28px 32px;
+                padding: 28px 52px 48px 32px;
                 margin: 0px 0;
-                border-top: 8px solid #e5fa4d;
-                
+                border-top: 8px solid black;
+            }
+            .timegem-ven-block__help {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                z-index: 3;
+            }
+            .timegem-ven-block__help-btn {
+                -webkit-appearance: none;
+                appearance: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                padding: 0;
+                border: 2px solid #00000060;
+                border-radius: 50%;
+                background: transparent;
+                color: inherit;
+                font-family: inherit;
+                font-size: 14px;
+                font-weight: 700;
+                line-height: 1;
+                cursor: pointer;
+            }
+            .timegem-ven-block__help-btn:hover,
+            .timegem-ven-block__help-btn:focus-visible {
+                background: black;
+                color: #e5fa4d;
+            }
+            .timegem-ven-block__help-tip {
+                display: none;
+                position: absolute;
+                top: calc(100% + 2px);
+                right: 0;
+                width: 240px;
+                padding: 12px 14px;
+                background: black;
+                color: white;
+                font-size: 14px;
+                font-weight: 400;
+                line-height: 1.4;
+                text-transform: none;
+                letter-spacing: 0;
+            }
+            .timegem-ven-block__help:hover .timegem-ven-block__help-tip,
+            .timegem-ven-block__help:focus-within .timegem-ven-block__help-tip,
+            .timegem-ven-block__help.is-open .timegem-ven-block__help-tip {
+                display: block;
+            }
+            .timegem-ven-block__help-tip p {
+                margin: 0 0 8px;
+            }
+            .timegem-ven-block__help-link {
+                color: #e5fa4d;
+                font-weight: 700;
+                text-decoration: underline;
+            }
+            .timegem-ven-block__help-link:hover,
+            .timegem-ven-block__help-link:focus-visible {
+                color: white;
             }
             .timegem-ven-block__like {
                 margin-top: 20px;
@@ -2512,8 +2839,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 text-transform: none;
             }
             .timegem-ven-block__symbol {
-                color: greenyellow;
-                margin: 8px 0 0;
+                color: black;
+                margin: 0px 0 12px 0;
                 vertical-align: -0.18em;
             }
             .timegem-ven-block__reasons {
@@ -2534,7 +2861,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-tabs {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 6px;
+                gap: 0px;
                 margin: 16px 0 4px;
             }
             .timegem-ven-tab {
@@ -2562,7 +2889,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
 
             .timegem-ven-tab:hover {
-                background: #00000020;
+                background: red;
+                color: #fff;
             }
             .timegem-ven-tab.is-active {
                 background: #000;
@@ -2607,24 +2935,49 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 padding: 0;
             }
             .timegem-ven-gem {
+                position: relative;
                 display: flex;
                 flex-wrap: wrap;
                 align-items: center;
                 gap: 12px;
-                padding: 8px 0;
+                padding: 0px 0;
                 border-top: 1px solid rgba(0, 0, 0, .12);
+                cursor: pointer;
+            }
+            .timegem-ven-gem__name:after {
+                content: "";
+                position: absolute;
+                inset: 0;
             }
             .timegem-ven-gem:first-child {
                 border-top: 0;
             }
+            .timegem-ven-gem:hover {
+            background: red;
+            color: #fff;
+            }
+
+           
+
             .timegem-ven-gem__date {
                 flex: none;
                 min-width: 64px;
-                font-size: 13px;
+                font-size: 20px;
                 font-weight: 700;
                 text-transform: uppercase;
-                opacity: .65;
+                opacity: 1;
+                font-family: ABC Gravity;
+                display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 0.9;
+    padding:8px;
             }
+
+            .timegem-ven-gem__day {
+                font-size: 32px;
+            }
+
             .timegem-ven-gem .timegem-ven-symbols {
                 flex: none;
                 font-size: 17px;
@@ -2635,11 +2988,22 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 text-decoration: none;
                 color: inherit;
                 line-height: 1.2;
+                font-family: ABC Gravity;
+                font-size:32px;
+                transition:none;
             }
             .timegem-ven-gem__name:hover {
-                text-decoration: underline;
+                text-decoration: none;
+                color:#FFF;
             }
+                 .timegem-ven-gem:hover .timegem-ven-symbols {
+                color:black;
+            }
+
+
             .timegem-ven-gem__tickets {
+                position: relative;
+                z-index: 1;
                 margin-left: auto;
                 flex: none;
                 background: #ff7b00;
@@ -2653,6 +3017,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 text-decoration: none;
                 color: inherit;
                 white-space: nowrap;
+                transition:none;
             }
             .timegem-ven-gem__tickets:hover,
             .timegem-ven-gem__tickets:focus-visible {
@@ -2660,7 +3025,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 color: #fff;
                 
             }
+                .timegem-ven-gem:hover .timegem-ven-gem__tickets {
+                background: red;
+                color: #fff;
+                }
+
             .timegem-ven-gem__unlike {
+                position: relative;
+                z-index: 1;
                 -webkit-appearance: none;
                 appearance: none;
                 margin-left: auto;
@@ -2716,6 +3088,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     justify-content: flex-start;
     width: 80px;
             }
+
+            .is-genres .timegem-ven-block__match {
+            background: black;
+            color: #fff;
+            width: max-content;
+            }
+
             .timegem-ven-block__matches.is-genres .timegem-ven-block__match {
                 padding: 6px 14px;
                 text-transform: uppercase;
@@ -2922,11 +3301,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 line-height: 1;
                 text-transform: uppercase;
             }
-            @media (max-width: 640px) {
-                .timegem-ven-featured {
-                    gap: 12px;
-                }
-            }
+            
+
+            
             .timegem-ven-profile-page__gems {
                 
             }
