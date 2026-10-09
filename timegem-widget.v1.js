@@ -1107,6 +1107,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         try { return document.documentElement.lang || undefined; } catch (e) { return undefined; }
     }
 
+    var MATCH_RANK = { direct: 0, heavy: 1, medium: 2, light: 3 };
+
+    function matchRank(rec) {
+        var t = rec && rec.matchType ? String(rec.matchType).toLowerCase() : '';
+        return Object.prototype.hasOwnProperty.call(MATCH_RANK, t) ? MATCH_RANK[t] : 99;
+    }
+
     /**
      * Matched events still to come, oldest first.
      * The recommendation carries the match, eventsBySlug carries the date \u2014 the
@@ -1144,6 +1151,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 months.push(seen[key]);
             }
             seen[key].gems.push(gem);
+        });
+        months.forEach(function (month) {
+            month.gems.sort(function (a, b) {
+                var rank = matchRank(a.rec) - matchRank(b.rec);
+                if (rank) return rank;
+                return a.date - b.date;
+            });
         });
         return months;
     }
@@ -1188,8 +1202,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             item.className = 'timegem-ven-gem';
             item.setAttribute('data-match', String(gem.rec.matchType).toLowerCase());
 
-            item.appendChild(buildGemDate(gem.date, locale));
-
             var symbol = buildMatchSymbol(gem.rec.matchType);
             if (symbol) item.appendChild(symbol);
 
@@ -1200,6 +1212,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             link.href = eventUrl;
             link.textContent = gem.event.event_name || gem.slug; // API copy, never innerHTML
             item.appendChild(link);
+
+            item.appendChild(buildGemDate(gem.date, locale));
 
             var tickets = document.createElement('a');
             tickets.className = 'timegem-ven-gem__tickets';
@@ -1332,6 +1346,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!hasId || !isHomePage()) return;
 
         insertBlockBeforeDiscoverCta(function (block) {
+            block.className += ' timegem-ven-home';
+
             var wrap = document.createElement('div');
             wrap.className = 'timegem-ven-block_wrapper';
 
@@ -1774,6 +1790,30 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (when) writeStoredProfileUpdated(when);
         syncNavCtaStaleDot(isOlderThanOneMonth(when));
         paintLastUpdateLine(when);
+        paintSettingsConnectedIntro(data);
+    }
+
+    function spotifyDisplayName(data) {
+        var profile = (data && data.profile) || null;
+        if (!profile && getTimegemId() && profileCache[getTimegemId()]) {
+            profile = profileCache[getTimegemId()].profile;
+        }
+        return (profile && (profile.display_name || profile.displayName)) || '';
+    }
+
+    function fillSettingsConnectedIntro(intro, data) {
+        var name = spotifyDisplayName(data);
+        intro.textContent = '';
+        intro.appendChild(document.createTextNode('Je aanbevelingen zijn gekoppeld aan '));
+        var who = document.createElement('strong');
+        who.textContent = name || 'jouw Spotify-account';
+        intro.appendChild(who);
+        intro.appendChild(document.createTextNode(' via Spotify. De koppeling is alleen actief in deze browser op dit apparaat. Je kunt altijd ontkoppelen en later opnieuw verbinden.'));
+    }
+
+    function paintSettingsConnectedIntro(data) {
+        var intro = document.querySelector('.timegem-ven-settings-intro');
+        if (intro) fillSettingsConnectedIntro(intro, data);
     }
 
     function loadProfileFreshness() {
@@ -1897,7 +1937,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             return;
         }
 
-        intro.textContent = 'Your music account is connected on this device. Disconnect to stop recommendations here. Reconnecting brings the same profile back.';
+        intro.className = 'timegem-ven-settings-intro';
+        fillSettingsConnectedIntro(intro);
         slot.appendChild(intro);
         appendRefresh(slot);
         appendDisconnect(slot);
@@ -1918,14 +1959,20 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var wrap = document.createElement('div');
         wrap.className = 'timegem-ven-refresh';
 
-        var text = document.createElement('p');
-        text.textContent = 'Listened to new music lately? Refresh to update your top artists, tracks and recommendations with your latest Spotify data.';
-        wrap.appendChild(text);
+        var title = document.createElement('h3');
+        title.textContent = 'Vernieuw je muzieksmaak.';
+        wrap.appendChild(title);
 
         var updated = document.createElement('p');
         updated.className = 'timegem-ven-refresh__updated';
         updated.textContent = lastUpdateCopy(currentProfileUpdatedAt());
         wrap.appendChild(updated);
+
+        var text = document.createElement('p');
+        text.textContent = 'De laatste tijd nieuwe muziek geluisterd? Werk je gegevens bij om je favoriete artiesten, nummers en aanbevelingen te vernieuwen op basis van je nieuwste Spotify-luistergedrag.';
+        wrap.appendChild(text);
+
+        
 
         var button = document.createElement('button');
         button.type = 'button';
@@ -2434,6 +2481,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 align-items: center;
                 gap: 6px;
                 line-height: 1;
+                width: 64px;
+                padding-left:8px;
             }
             .timegem-ven-about-legend {
                 list-style: none;
@@ -2829,6 +2878,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 margin: 0px 0;
                 border-top: 8px solid black;
             }
+
+            .timegem-ven-block.timegem-ven-home {
+            background:white;
+            }
+                
             .timegem-ven-block__help {
                 position: absolute;
                 top: 16px;
@@ -2953,7 +3007,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 display: flex;
                 flex-wrap: wrap;
                 gap: 0px;
-                margin: 16px 0 4px;
+                margin: 16px 0 8px;
             }
             .timegem-ven-tab {
                 -webkit-appearance: none;
@@ -3059,10 +3113,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 opacity: 1;
                 font-family: ABC Gravity;
                 display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
     line-height: 0.9;
     padding:8px;
+    gap:4px;
+    opacity:0.7;
             }
 
             .timegem-ven-gem__day {
@@ -3314,7 +3370,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-profile-page__identity > p,
             .timegem-ven-profile-page__panel > p {
                 margin: 0 0 16px;
-                font-size: 16px;
+                font-size: 20px;
                 line-height: 1.5;
             }
             .timegem-ven-profile-page .timegem-ven-avatar {
