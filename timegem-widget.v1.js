@@ -1098,6 +1098,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     var GEMS_BODY_ATTR = 'data-timegem-gems';
     var HOME_GEMS_MONTHS = 12;
+    /** Home page shows a short preview; the full list lives on /my-profile. */
+    var HOME_GEMS_PREVIEW_LIMIT = 8;
+    var HOME_GEMS_OVERVIEW_LABEL = 'Toon volledige overzicht';
     var gemsRenderId = 0;
     var TICKETS_LABEL = 'Meer info';
     var DISCONNECT_LABEL = 'Disconnect';
@@ -1107,7 +1110,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         try { return document.documentElement.lang || undefined; } catch (e) { return undefined; }
     }
 
-    var MATCH_RANK = { direct: 0, heavy: 1, medium: 2, light: 3 };
+    var MATCH_RANK = { heavy: 0, medium: 1, light: 2, direct: 3 };
 
     function matchRank(rec) {
         var t = rec && rec.matchType ? String(rec.matchType).toLowerCase() : '';
@@ -1240,19 +1243,41 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return label;
     }
 
+    /**
+     * Home only: the first few upcoming matches as a flat list, with a button
+     * to the full overview on /my-profile. The month tabs live on the profile.
+     */
+    function renderHomeGemsPreview(body, gems, locale) {
+        var shown = gems.slice(0, HOME_GEMS_PREVIEW_LIMIT);
+        body.appendChild(buildGemList({ gems: shown }, locale));
+
+        var more = document.createElement('a');
+        more.className = BLOCK_CLASS + '__overview';
+        more.href = PROFILE_PATH + '/';
+        more.textContent = HOME_GEMS_OVERVIEW_LABEL;
+        body.appendChild(more);
+    }
+
     /** Fills the home block with the visitor's upcoming matches, by month. */
     function renderHomeGems(bySlug) {
         var body = homeGemsBody();
         if (!body) return;
 
-        var months = groupGemsByMonth(collectUpcomingGems(bySlug));
-        if (!months.length) {
+        var gems = collectUpcomingGems(bySlug);
+        if (!gems.length) {
             renderHomeGemsMessage('No matches coming up yet \u2014 check back when new shows go on sale.');
             return;
         }
 
         body.innerHTML = '';
         var locale = pageLocale();
+
+        if (isHomePage()) {
+            renderHomeGemsPreview(body, gems, locale);
+            return;
+        }
+
+        var months = groupGemsByMonth(gems);
         var shown = months.slice(0, HOME_GEMS_MONTHS);
 
         var tablist = document.createElement('div');
@@ -1940,8 +1965,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         intro.className = 'timegem-ven-settings-intro';
         fillSettingsConnectedIntro(intro);
         slot.appendChild(intro);
-        appendRefresh(slot);
-        appendDisconnect(slot);
+        // Disconnect lives inside the refresh card so settings is one block.
+        appendDisconnect(appendRefresh(slot));
     }
 
     var REFRESH_LABEL = 'Refresh my data';
@@ -2040,6 +2065,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         parent.appendChild(wrap);
+        return wrap;
     }
 
     var profileLikesView = { body: null, likes: null, failed: false };
@@ -2454,7 +2480,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 right: 16px;
                 background: #000;
                 color: #e5fa4d;
-                padding: 12px 12px 0px 12px;
+                padding: 12px 14px 0px 10px;
                 border-radius: 0;
                 font-size: 24px;
                 line-height: 1;
@@ -2482,8 +2508,15 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 gap: 6px;
                 line-height: 1;
                 width: 64px;
-                padding-left:8px;
+                       justify-content: center;
+    align-items: center;
+                
             }
+            .timegem-ven-home .timegem-ven-symbols {
+            padding-left:8px;
+            justify-content: flex-end;
+            }
+
             .timegem-ven-about-legend {
                 list-style: none;
                 margin: 16px 0 0;
@@ -2765,35 +2798,33 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             }
             .timegem-ven-profile-foot {
                 margin-top: 22px;
-                
-                padding:16px;
-                background: #FF000020;
+            }
+            /* Inside the settings card: a divider, not a separate box. */
+            .timegem-ven-refresh .timegem-ven-profile-foot {
+                margin-top: 24px;
+                padding-top: 24px;
+                border-top: 1px solid rgba(0, 0, 0, .12);
             }
 
             .timegem-ven-profile-foot p:first-child {
                 font-size: 14px;
                 text-transform: uppercase;
-                color:red;
+                letter-spacing: .08em;
+                opacity: .65;
                 margin-bottom: 0;
             }
 
-            .timegem-ven-profile-foot p:last-child {
-                
-            }
-                
             .timegem-ven-disconnect {
                 -webkit-appearance: none;
                 appearance: none;
-                background: red;
+                background: transparent;
                 color: black;
-                font: ;
+                border: 2px solid black;
                 font-size: 24px;
                 font-weight: 800;
                 line-height: 1;
                 text-transform: uppercase;
-                
                 font-family: 'ABC Gravity', sans-serif;
-                
                 padding: 8px 16px;
                 cursor: pointer;
             }
@@ -3215,6 +3246,27 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 letter-spacing: .08em;
                 opacity: .65;
             }
+            .timegem-ven-block__overview {
+                display: inline-block;
+                margin-top: 24px;
+                padding: 12px 20px;
+                background: black;
+                color: #e5fa4d;
+                font-size: 14px;
+                font-weight: 800;
+                line-height: 1;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                text-decoration: none;
+                white-space: nowrap;
+                transition: none;
+            }
+            .timegem-ven-block__overview:hover,
+            .timegem-ven-block__overview:focus-visible {
+                background: red;
+                color: #fff;
+                text-decoration: none;
+            }
             .timegem-ven-block__matches {
                 display: flex;
                 flex-wrap: wrap;
@@ -3499,6 +3551,43 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 .timegem-ven-connect {
                     flex: none;
                     width: 100%;
+                }
+
+                /* Gem rows: name + match symbols on the first line, date + button on the second. */
+                .timegem-ven-gem {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) auto;
+                    grid-template-areas:
+                        "name symbol"
+                        "date action";
+                    align-items: center;
+                    column-gap: 12px;
+                    row-gap: 6px;
+                    padding: 12px 0;
+                }
+                .timegem-ven-gem .timegem-ven-symbols {
+                    grid-area: symbol;
+                    justify-self: end;
+                }
+                .timegem-ven-gem__name {
+                    grid-area: name;
+                    font-size: 26px;
+                    overflow-wrap: anywhere;
+                }
+                .timegem-ven-gem__date {
+                    grid-area: date;
+                    min-width: 0;
+                    padding: 0;
+                    font-size: 16px;
+                }
+                .timegem-ven-gem__day {
+                    font-size: 26px;
+                }
+                .timegem-ven-gem__tickets,
+                .timegem-ven-gem__unlike {
+                    grid-area: action;
+                    margin-left: 0;
+                    justify-self: end;
                 }
             }
             @media (max-width: 860px) {
