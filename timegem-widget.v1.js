@@ -3615,6 +3615,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 font-size: 48px;
                 }
 
+                .timegem-ven-gem {
+                row-gap:0px;
+                padding: 8px 0;
+                }
+
                 .timegem-ven-profile-page__frame {
                     grid-template-columns: 1fr;
                     column-gap: 0;
