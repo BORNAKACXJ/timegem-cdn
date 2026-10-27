@@ -2201,9 +2201,26 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return 'recommendations';
     }
 
+    /**
+     * The WordPress page is laid out in two columns: the theme's sidebar nav
+     * (`.nav--sidebar`) in the first, the page content in the second. Mount in
+     * the second column so the sidebar stays put.
+     */
     function getProfileMount() {
-        return document.querySelector('article ' + PROFILE_MOUNT)
-            || document.querySelector(PROFILE_MOUNT);
+        var article = document.querySelector('article');
+        if (article) {
+            var columns = article.querySelectorAll('.column');
+            if (columns.length > 1) {
+                var inSecond = columns[1].querySelector(PROFILE_MOUNT);
+                if (inSecond) return inSecond;
+            }
+            var blocks = article.querySelectorAll(PROFILE_MOUNT);
+            for (var i = 0; i < blocks.length; i++) {
+                if (!blocks[i].querySelector('.nav--sidebar')) return blocks[i];
+            }
+            if (blocks.length) return blocks[blocks.length - 1];
+        }
+        return document.querySelector(PROFILE_MOUNT);
     }
 
     function renderProfilePageWhenReady(hasId, attempt) {
@@ -2711,6 +2728,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner a {
                 color: #000;
             }
+               
+
             .timegem-ven-profile-head {
                 display: flex;
                 align-items: center;
@@ -3591,6 +3610,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 }
             }
             @media (max-width: 860px) {
+
+                 .is-connect h2 {
+                font-size: 48px;
+                }
+
                 .timegem-ven-profile-page__frame {
                     grid-template-columns: 1fr;
                     column-gap: 0;
