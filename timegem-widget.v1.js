@@ -4,6 +4,150 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 (function () {
     'use strict';
 
+    // ─── Copy ─────────────────────────────────────────────────────────────────
+    // Every visible text lives here. Use \n inside a text for a line break.
+    // {placeholders} are filled in by the code, so keep them as they are.
+    var TEXT = {
+        // Nav button
+        navCtaLoggedIn: 'Your profile',
+        navCtaLoggedOut: 'Ontdek jouw must-sees',
+        navCtaStaleTitle: 'Update your profile',
+
+        // Connect dialog (logged out)
+        dialogClose: 'Sluiten',
+        connectTitle: 'Ontdek jouw must-sees',
+        connectIntro:
+            'Koppel je Apple Music of Spotify aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. ' +
+            'Op basis van jouw luistergedrag krijg je suggesties die perfect aansluiten bij jouw smaak, ' +
+            'van je favoriete artiesten tot verborgen parels die je nog niet kende.',
+        connectPrivacy:
+            'En geen zorgen, jouw geheime meezingers blijven gewoon tussen jou en Apple Music/Spotify. ' +
+            'We vragen Apple Music/Spotify alleen om een kijkje te nemen in je profiel, zodat we jouw muzieksmaak beter leren kennen. ' +
+            'Zo kunnen we je nog beter matchen met concerten die écht bij je passen. ' +
+            'Geen spam, geen gedoe met data delen, gewoon de perfecte concerttips voor jou.',
+        connectSpotify: 'Connect with Spotify',
+        connectApple: 'Connect with Apple Music',
+        connectUnavailable: 'No venue is configured for this page, so connecting is unavailable.',
+
+        // Profile (dialog and profile page)
+        profileDialogTitle: 'Your profile',
+        profileName: 'Jouw profiel',
+        profileGenres: 'Genres',
+        profileTopArtists: 'Top artists',
+        profileTopTracks: 'Top tracks',
+        profileLoading: 'Loading your profile…',
+        profileError: "We couldn't load your profile right now. Please try again later.",
+        profileSignedOut: 'Connect your music account under My settings to see your top artists and tracks.',
+
+        // Danger zone (disconnect)
+        disconnectHeading: 'Danger zone',
+        disconnectText: 'Wil je je account ontkoppelen? En geen mooie concerttips meer krijgen? Klik dan hieronder op ontkoppelen.',
+        disconnectButton: 'Disconnect',
+
+        // Home must-sees block and recommendations list
+        homeTitle: 'Dit zijn jouw must-sees voor de komende periode',
+        homeOverview: 'Toon volledige overzicht',
+        gemTickets: 'Meer info',
+        gemsLoading: 'Loading your gems…',
+        gemsUpdating: 'Updating your gems…',
+        gemsError: 'We could not load your gems right now.',
+        gemsEmpty: 'No matches coming up yet \u2014 check back when new shows go on sale.',
+        gemsSignedOut: 'Connect to see which shows match your taste this month.',
+        monthsLabel: 'Months with matches',
+        moreMonthsOne: '+{count} more month with matches',
+        moreMonthsMany: '+{count} more months with matches',
+
+        // Agenda block
+        agendaListing: 'Your matches are marked in the list below.',
+        match: {
+            direct: 'This is one of your favorite artists',
+            heavy: 'RECOMMENDED BASED ON RELATED ARTISTS',
+            medium: 'RECOMMENDED BASED ON RELATED ARTISTS',
+            light: 'RECOMMENDED BASED ON GENRE',
+            none: 'This is not a match'
+        },
+        matchUnavailable: 'We could not check this one right now',
+        matchCaptionGenres: 'Matching genres',
+        matchCaptionArtists: 'Because you listen to',
+        helpLabel: 'Meer over deze match',
+        helpText: 'Dit is gebaseerd op jouw Spotify luistergedrag.',
+        helpLink: 'lees meer',
+        like: 'Like',
+        liked: 'Liked',
+
+        // Profile page menu
+        profileNavLabel: 'My profile',
+        navRecommendations: 'My recommendations',
+        navSettings: 'My settings',
+        navAbout: 'About',
+        recommendationsTitle: 'My recommendations',
+
+        // About
+        aboutTitle: 'About',
+        aboutIntro:
+            'The lightning bolts tell you how good a match is. More bolts means the show fits your taste better. ' +
+            'A star is a direct match: one of your favorite artists.',
+        aboutLight: 'One bolt \u2014 a lighter match.',
+        aboutMedium: 'Two bolts \u2014 a stronger match.',
+        aboutHeavy: 'Three bolts \u2014 the strongest match.',
+        aboutDirect: 'A star \u2014 a direct match.',
+
+        // Settings
+        settingsTitle: 'My settings',
+        settingsSignedOut: 'Connect a music account to see your profile and recommendations on this device.',
+        settingsConnected:
+            'Je aanbevelingen zijn gekoppeld aan {name} via Spotify. ' +
+            'De koppeling is alleen actief in deze browser op dit apparaat. ' +
+            'Je kunt altijd ontkoppelen en later opnieuw verbinden.',
+        settingsConnectedFallbackName: 'jouw Spotify-account',
+
+        // Refresh (on My settings)
+        refreshTitle: 'Vernieuw je muzieksmaak.',
+        refreshText:
+            'De laatste tijd nieuwe muziek geluisterd? Werk je gegevens bij om je favoriete artiesten, nummers en aanbevelingen ' +
+            'te vernieuwen op basis van je nieuwste Spotify-luistergedrag.',
+        refreshButton: 'Refresh my data',
+        refreshButtonBusy: 'Refreshing…',
+        refreshFetching: 'Fetching your latest listening data from Spotify…',
+        refreshDone: 'Done \u2014 your profile was updated at {time}.',
+        refreshExpired: 'Your Spotify connection has expired. Connect again to refresh \u2014 you will keep the same profile and likes.',
+        refreshRateLimited: 'Spotify is busy right now. Please try again in a minute.',
+        refreshError: "We couldn't refresh your data right now. Please try again later.",
+        lastUpdate: 'Laatste update is {date}',
+        lastUpdateUnknown: 'Laatste update is onbekend',
+
+        // My likes
+        likesTitle: 'My likes',
+        likesSignedOut: 'Connect your music account under My settings to save likes.',
+        likesLoading: 'Loading your likes…',
+        likesEmpty: 'You have not liked a show yet.',
+        likesError: "We couldn't load your likes right now.",
+        unlike: 'Unlike'
+    };
+
+    /** Fills {placeholders} in a TEXT entry. */
+    function fmt(text, values) {
+        return String(text).replace(/\{(\w+)\}/g, function (match, key) {
+            return values && Object.prototype.hasOwnProperty.call(values, key) ? values[key] : match;
+        });
+    }
+
+    /** Appends text to an element, turning every \n into a <br>. */
+    function appendText(el, text) {
+        String(text == null ? '' : text).split('\n').forEach(function (line, i) {
+            if (i) el.appendChild(document.createElement('br'));
+            el.appendChild(document.createTextNode(line));
+        });
+    }
+
+    /** Like textContent =, but a \n in the copy becomes a line break. */
+    function setText(el, text) {
+        el.textContent = '';
+        appendText(el, text);
+    }
+
+    var STYLESHEET_URL = 'https://cdn.timegem.nl/tg__main.css';
+
     var agendaPath = '/agenda/';
     var TIMEGEM_USER_STORAGE_KEY = 'timegem_ven_id';
     var TIMEGEM_VENUE_STORAGE_KEY = 'timegem_ven_venue_id';
@@ -497,7 +641,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var apiData = result && result.ok ? result.data : null;
             if (!apiData) {
                 updateAgendaBlock(null, 'unavailable');
-                renderHomeGemsMessage('We could not load your gems right now.');
+                renderHomeGemsMessage(TEXT.gemsError);
                 return;
             }
             var bySlug = slugToRecommendation(apiData);
@@ -611,18 +755,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var CTA_SELECTOR = NAV_CTA_SELECTOR + ', ' + DISCOVER_CTA_SELECTOR;
     var DIALOG_ID = 'timegem-ven-dialog';
     var HAS_ID_ATTR = 'data-timegem-has-id';
-    var NAV_CTA_LABEL_LOGGED_IN = 'Your profile';
-    var NAV_CTA_LABEL_LOGGED_OUT = 'Ontdek jouw must-sees';
     var ORIGINAL_LABEL_ATTR = 'data-timegem-label';
     var ORIGINAL_HREF_ATTR = 'data-timegem-href';
     var BLOCK_CLASS = 'timegem-ven-block';
-    var MATCH_COPY = {
-        direct: 'This is one of your favorite artists',
-        heavy: 'RECOMMENDED BASED ON RELATED ARTISTS',
-        medium: 'RECOMMENDED BASED ON RELATED ARTISTS',
-        light: 'RECOMMENDED BASED ON GENRE',
-        none: 'This is not a match'
-    };
     var CONNECT_PORTAL_URL = 'https://my.personaltimetable.com/';
     // dsp values the portal understands ('spotify' | 'apple'). A provider the
     // venue has not enabled in connect_providers lands on the normal picker.
@@ -637,8 +772,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             '</svg>'
     };
     var CONNECT_PROVIDERS = [
-        { dsp: 'spotify', label: 'Connect with Spotify' },
-        { dsp: 'apple', label: 'Connect with Apple Music' }
+        { dsp: 'spotify', label: TEXT.connectSpotify },
+        { dsp: 'apple', label: TEXT.connectApple }
     ];
 
     /** One connect button, styled like the onboarding .spotify-connect-btn (icon + label). */
@@ -647,7 +782,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         link.className = 'timegem-ven-connect is-' + provider.dsp;
         link.href = buildConnectUrl(provider.dsp);
         link.innerHTML = (CONNECT_ICONS[provider.dsp] || '') + '<span></span>';
-        link.querySelector('span').textContent = provider.label;
+        setText(link.querySelector('span'), provider.label);
         return link;
     }
     var profileCache = {};
@@ -727,7 +862,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         var subhead = document.createElement('h3');
         subhead.className = 'timegem-ven-subhead';
-        subhead.textContent = heading;
+        setText(subhead, heading);
         body.appendChild(subhead);
 
         var lead = featured ? items.slice(0, 3) : [];
@@ -818,7 +953,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
 
         var name = document.createElement('h2');
-        name.textContent = 'Jouw profiel';
+        setText(name, TEXT.profileName);
         head.appendChild(name);
         body.appendChild(head);
 
@@ -833,7 +968,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             body.appendChild(genreLine);
         }
 
-        appendProfileSection(body, 'Top artists', ((data && data.topArtists) || []).map(function (a) {
+        appendProfileSection(body, TEXT.profileTopArtists, ((data && data.topArtists) || []).map(function (a) {
             return {
                 image: a.image_url,
                 primary: a.artist_name,
@@ -841,7 +976,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             };
         }), featured);
 
-        appendProfileSection(body, 'Top tracks', ((data && data.topTracks) || []).map(function (t) {
+        appendProfileSection(body, TEXT.profileTopTracks, ((data && data.topTracks) || []).map(function (t) {
             return {
                 image: t.album_image_url,
                 primary: t.track_name,
@@ -857,7 +992,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     function appendGenreCards(body, genres) {
         var subhead = document.createElement('h3');
         subhead.className = 'timegem-ven-subhead';
-        subhead.textContent = 'Genres';
+        setText(subhead, TEXT.profileGenres);
         body.appendChild(subhead);
 
         var row = document.createElement('div');
@@ -882,17 +1017,17 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         footer.className = 'timegem-ven-profile-foot';
 
         var heading = document.createElement('p');
-        heading.textContent = 'Danger zone';
+        setText(heading, TEXT.disconnectHeading);
         footer.appendChild(heading);
 
         var copy = document.createElement('p');
-        copy.textContent = 'Wil je je account ontkoppelen? En geen mooie concerttips meer krijgen? Klik dan hieronder op ontkoppelen.';
+        setText(copy, TEXT.disconnectText);
         footer.appendChild(copy);
 
         var disconnect = document.createElement('button');
         disconnect.type = 'button';
         disconnect.className = 'timegem-ven-disconnect';
-        disconnect.textContent = DISCONNECT_LABEL;
+        setText(disconnect, TEXT.disconnectButton);
         disconnect.addEventListener('click', disconnectTimegem);
         footer.appendChild(disconnect);
 
@@ -927,7 +1062,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 return;
             }
 
-            title.textContent = 'Your profile';
+            setText(title, TEXT.profileDialogTitle);
             body.appendChild(title);
 
             if (SHOW_LOADING_STATES) {
@@ -953,7 +1088,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 if (token !== dialogRenderToken || !body.isConnected) return;
 
                 if (!data || !data.profile) {
-                    intro.textContent = "We couldn't load your profile right now. Please try again later.";
+                    setText(intro, TEXT.profileError);
                     return;
                 }
 
@@ -965,7 +1100,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             return;
         }
 
-        title.textContent = 'Ontdek jouw must-sees';
+        setText(title, TEXT.connectTitle);
         body.appendChild(title);
 
         //var hook = document.createElement('p');
@@ -975,17 +1110,17 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         //hook.appendChild(document.createTextNode('écht bij je past?'));
        // body.appendChild(hook);
 
-        intro.textContent = 'Koppel je Apple Music of Spotify aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. Op basis van jouw luistergedrag krijg je suggesties die perfect aansluiten bij jouw smaak, van je favoriete artiesten tot verborgen parels die je nog niet kende.';
+        setText(intro, TEXT.connectIntro);
         body.appendChild(intro);
 
         var privacy = document.createElement('p');
-        privacy.textContent = 'En geen zorgen, jouw geheime meezingers blijven gewoon tussen jou en Apple Music/Spotify. We vragen Apple Music/Spotify alleen om een kijkje te nemen in je profiel, zodat we jouw muzieksmaak beter leren kennen. Zo kunnen we je nog beter matchen met concerten die écht bij je passen. Geen spam, geen gedoe met data delen, gewoon de perfecte concerttips voor jou.';
+        setText(privacy, TEXT.connectPrivacy);
         body.appendChild(privacy);
 
         if (!buildConnectUrl()) {
             var fine = document.createElement('p');
             fine.className = 'timegem-ven-fineprint';
-            fine.textContent = 'No venue is configured for this page, so connecting is unavailable.';
+            setText(fine, TEXT.connectUnavailable);
             body.appendChild(fine);
             return;
         }
@@ -1006,7 +1141,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         dialog.className = 'timegem-ven-dialog';
         dialog.innerHTML =
             '<div class="timegem-ven-dialog-inner">' +
-                '<button type="button" class="timegem-ven-dialog-close" aria-label="Sluiten">&times;</button>' +
+                '<button type="button" class="timegem-ven-dialog-close" aria-label="' + escapeHtml(TEXT.dialogClose) + '">&times;</button>' +
                 '<div class="timegem-ven-dialog-body"></div>' +
             '</div>';
 
@@ -1100,10 +1235,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var HOME_GEMS_MONTHS = 12;
     /** Home page shows a short preview; the full list lives on /my-profile. */
     var HOME_GEMS_PREVIEW_LIMIT = 8;
-    var HOME_GEMS_OVERVIEW_LABEL = 'Toon volledige overzicht';
     var gemsRenderId = 0;
-    var TICKETS_LABEL = 'Meer info';
-    var DISCONNECT_LABEL = 'Disconnect';
 
     /** Month names follow the page's own language rather than the browser's. */
     function pageLocale() {
@@ -1175,7 +1307,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         body.innerHTML = '';
         var line = document.createElement('p');
         line.className = BLOCK_CLASS + '__empty';
-        line.textContent = text;
+        setText(line, text);
         body.appendChild(line);
     }
 
@@ -1221,7 +1353,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var tickets = document.createElement('a');
             tickets.className = 'timegem-ven-gem__tickets';
             tickets.href = eventUrl;
-            tickets.textContent = TICKETS_LABEL;
+            setText(tickets, TEXT.gemTickets);
             item.appendChild(tickets);
 
             list.appendChild(item);
@@ -1254,7 +1386,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var more = document.createElement('a');
         more.className = BLOCK_CLASS + '__overview';
         more.href = PROFILE_PATH + '/';
-        more.textContent = HOME_GEMS_OVERVIEW_LABEL;
+        setText(more, TEXT.homeOverview);
         body.appendChild(more);
     }
 
@@ -1265,7 +1397,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         var gems = collectUpcomingGems(bySlug);
         if (!gems.length) {
-            renderHomeGemsMessage('No matches coming up yet \u2014 check back when new shows go on sale.');
+            renderHomeGemsMessage(TEXT.gemsEmpty);
             return;
         }
 
@@ -1283,7 +1415,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var tablist = document.createElement('div');
         tablist.className = 'timegem-ven-tabs';
         tablist.setAttribute('role', 'tablist');
-        tablist.setAttribute('aria-label', 'Months with matches');
+        tablist.setAttribute('aria-label', TEXT.monthsLabel);
 
         var panelWrap = document.createElement('div');
         panelWrap.className = 'timegem-ven-panels';
@@ -1361,7 +1493,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (rest > 0) {
             var more = document.createElement('p');
             more.className = BLOCK_CLASS + '__caption';
-            more.textContent = '+' + rest + ' more month' + (rest === 1 ? '' : 's') + ' with matches';
+            setText(more, fmt(rest === 1 ? TEXT.moreMonthsOne : TEXT.moreMonthsMany, { count: rest }));
             body.appendChild(more);
         }
     }
@@ -1378,7 +1510,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
             var title = document.createElement('h3');
             title.className = BLOCK_CLASS + '__text';
-            title.textContent = 'Dit zijn jouw must-sees voor de komende periode';
+            setText(title, TEXT.homeTitle);
             wrap.appendChild(title);
 
             var body = document.createElement('div');
@@ -1430,7 +1562,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             } else {
                 var line = document.createElement('p');
                 line.className = BLOCK_CLASS + '__text';
-                line.textContent = 'Your matches are marked in the list below.';
+                setText(line, TEXT.agendaListing);
                 block.appendChild(line);
                 mountBlockHelp(block);
             }
@@ -1491,7 +1623,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = BLOCK_CLASS + '__help-btn';
-        btn.setAttribute('aria-label', 'Meer over deze match');
+        btn.setAttribute('aria-label', TEXT.helpLabel);
         btn.setAttribute('aria-expanded', 'false');
         btn.textContent = '?';
 
@@ -1500,13 +1632,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         tip.setAttribute('role', 'tooltip');
 
         var copy = document.createElement('p');
-        copy.textContent = 'Dit is gebaseerd op jouw Spotify luistergedrag.';
+        setText(copy, TEXT.helpText);
         tip.appendChild(copy);
 
         var more = document.createElement('a');
         more.className = BLOCK_CLASS + '__help-link';
         more.href = PROFILE_PATH + '/about/';
-        more.textContent = 'lees meer';
+        setText(more, TEXT.helpLink);
         tip.appendChild(more);
 
         wrap.appendChild(btn);
@@ -1545,7 +1677,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         var caption = document.createElement('p');
         caption.className = BLOCK_CLASS + '__caption';
-        caption.textContent = isGenre ? 'Matching genres' : 'Because you listen to';
+        setText(caption, isGenre ? TEXT.matchCaptionGenres : TEXT.matchCaptionArtists);
         //fragment.appendChild(caption);
 
         var list = document.createElement('div');
@@ -1591,12 +1723,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var matchType = recommendation && recommendation.matchType
             ? String(recommendation.matchType).toLowerCase()
             : 'none';
-        var headline = MATCH_COPY[matchType] || MATCH_COPY.none;
+        var headline = TEXT.match[matchType] || TEXT.match.none;
         var showSymbol = state !== 'unavailable';
         var details = (recommendation && recommendation.matchDetails) || [];
 
         if (state === 'unavailable') {
-            headline = 'We could not check this one right now';
+            headline = TEXT.matchUnavailable;
             matchType = 'unknown';
             details = [];
         }
@@ -1635,7 +1767,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
             var line = document.createElement('h3');
             line.className = BLOCK_CLASS + '__text';
-            line.appendChild(document.createTextNode(headline));
+            appendText(line, headline);
             block.appendChild(line);
 
             var matchDetailNodes = state === 'unavailable' ? null : buildMatchDetails(recommendation);
@@ -1678,7 +1810,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         function paint(liked) {
             button.classList.toggle('is-liked', !!liked);
             button.setAttribute('aria-pressed', liked ? 'true' : 'false');
-            button.textContent = liked ? 'Liked' : 'Like';
+            setText(button, liked ? TEXT.liked : TEXT.like);
         }
 
         paint(false);
@@ -1714,7 +1846,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 cta.setAttribute(ORIGINAL_LABEL_ATTR, label.textContent.trim());
             }
 
-            var next = hasId ? NAV_CTA_LABEL_LOGGED_IN : NAV_CTA_LABEL_LOGGED_OUT;
+            var next = hasId ? TEXT.navCtaLoggedIn : TEXT.navCtaLoggedOut;
             if (label.textContent !== next) label.textContent = next;
 
             if (cta.tagName === 'A') {
@@ -1768,11 +1900,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             if (!stale) {
                 if (dot && dot.parentNode) dot.parentNode.removeChild(dot);
                 cta.removeAttribute('data-timegem-stale');
-                if (cta.getAttribute('title') === 'Update your profile') cta.removeAttribute('title');
+                if (cta.getAttribute('title') === TEXT.navCtaStaleTitle) cta.removeAttribute('title');
                 return;
             }
             cta.setAttribute('data-timegem-stale', '');
-            cta.setAttribute('title', 'Update your profile');
+            cta.setAttribute('title', TEXT.navCtaStaleTitle);
             if (dot) return;
             dot = document.createElement('span');
             dot.className = CTA_STALE_DOT_CLASS;
@@ -1793,11 +1925,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     }
 
     function lastUpdateCopy(date) {
-        if (!date) return 'Laatste update is onbekend';
-        return 'Laatste update is ' + date.toLocaleDateString(pageLocale(), {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
+        if (!date) return TEXT.lastUpdateUnknown;
+        return fmt(TEXT.lastUpdate, {
+            date: date.toLocaleDateString(pageLocale(), {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            })
         });
     }
 
@@ -1805,7 +1939,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var lines = document.querySelectorAll('.timegem-ven-refresh__updated');
         var copy = lastUpdateCopy(date);
         Array.prototype.forEach.call(lines, function (el) {
-            el.textContent = copy;
+            setText(el, copy);
         });
     }
 
@@ -1828,12 +1962,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function fillSettingsConnectedIntro(intro, data) {
         var name = spotifyDisplayName(data);
+        var parts = TEXT.settingsConnected.split('{name}');
         intro.textContent = '';
-        intro.appendChild(document.createTextNode('Je aanbevelingen zijn gekoppeld aan '));
+        appendText(intro, parts[0]);
+        if (parts.length < 2) return;
         var who = document.createElement('strong');
-        who.textContent = name || 'jouw Spotify-account';
+        who.textContent = name || TEXT.settingsConnectedFallbackName;
         intro.appendChild(who);
-        intro.appendChild(document.createTextNode(' via Spotify. De koppeling is alleen actief in deze browser op dit apparaat. Je kunt altijd ontkoppelen en later opnieuw verbinden.'));
+        appendText(intro, parts.slice(1).join(who.textContent));
     }
 
     function paintSettingsConnectedIntro(data) {
@@ -1870,9 +2006,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     }
 
     var PROFILE_NAV = [
-        { id: 'recommendations', label: 'My recommendations', slug: 'my-recommendations' },
-        { id: 'settings', label: 'My settings', slug: 'my-settings' },
-        { id: 'about', label: 'About', slug: 'about', aliases: ['my-about'] }
+        { id: 'recommendations', label: TEXT.navRecommendations, slug: 'my-recommendations' },
+        { id: 'settings', label: TEXT.navSettings, slug: 'my-settings' },
+        { id: 'about', label: TEXT.navAbout, slug: 'about', aliases: ['my-about'] }
     ];
 
     function profileNavSlugMatches(item, slug) {
@@ -1906,7 +2042,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!buildConnectUrl()) {
             var missing = document.createElement('p');
             missing.className = 'timegem-ven-fineprint';
-            missing.textContent = 'No venue is configured for this page, so connecting is unavailable.';
+            setText(missing, TEXT.connectUnavailable);
             slot.appendChild(missing);
             return;
         }
@@ -1921,27 +2057,27 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function renderProfileAbout(slot) {
         var title = document.createElement('h2');
-        title.textContent = 'About';
+        setText(title, TEXT.aboutTitle);
         slot.appendChild(title);
 
         var intro = document.createElement('p');
-        intro.textContent = 'The lightning bolts tell you how good a match is. More bolts means the show fits your taste better. A star is a direct match: one of your favorite artists.';
+        setText(intro, TEXT.aboutIntro);
         slot.appendChild(intro);
 
         var list = document.createElement('ul');
         list.className = 'timegem-ven-about-legend';
 
         [
-            { type: 'light', text: 'One bolt — a lighter match.' },
-            { type: 'medium', text: 'Two bolts — a stronger match.' },
-            { type: 'heavy', text: 'Three bolts — the strongest match.' },
-            { type: 'direct', text: 'A star — a direct match.' }
+            { type: 'light', text: TEXT.aboutLight },
+            { type: 'medium', text: TEXT.aboutMedium },
+            { type: 'heavy', text: TEXT.aboutHeavy },
+            { type: 'direct', text: TEXT.aboutDirect }
         ].forEach(function (row) {
             var item = document.createElement('li');
             var symbol = buildMatchSymbol(row.type);
             if (symbol) item.appendChild(symbol);
             var label = document.createElement('span');
-            label.textContent = row.text;
+            setText(label, row.text);
             item.appendChild(label);
             list.appendChild(item);
         });
@@ -1951,12 +2087,12 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function renderProfileSettings(slot, hasId) {
         var title = document.createElement('h2');
-        title.textContent = 'My settings';
+        setText(title, TEXT.settingsTitle);
         slot.appendChild(title);
 
         var intro = document.createElement('p');
         if (!hasId) {
-            intro.textContent = 'Connect a music account to see your profile and recommendations on this device.';
+            setText(intro, TEXT.settingsSignedOut);
             slot.appendChild(intro);
             appendConnectChoices(slot);
             return;
@@ -1968,8 +2104,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         // Disconnect lives inside the refresh card so settings is one block.
         appendDisconnect(appendRefresh(slot));
     }
-
-    var REFRESH_LABEL = 'Refresh my data';
 
     /**
      * "Refresh" on My settings: pulls the visitor's latest top artists and
@@ -1985,16 +2119,16 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         wrap.className = 'timegem-ven-refresh';
 
         var title = document.createElement('h3');
-        title.textContent = 'Vernieuw je muzieksmaak.';
+        setText(title, TEXT.refreshTitle);
         wrap.appendChild(title);
 
         var updated = document.createElement('p');
         updated.className = 'timegem-ven-refresh__updated';
-        updated.textContent = lastUpdateCopy(currentProfileUpdatedAt());
+        setText(updated, lastUpdateCopy(currentProfileUpdatedAt()));
         wrap.appendChild(updated);
 
         var text = document.createElement('p');
-        text.textContent = 'De laatste tijd nieuwe muziek geluisterd? Werk je gegevens bij om je favoriete artiesten, nummers en aanbevelingen te vernieuwen op basis van je nieuwste Spotify-luistergedrag.';
+        setText(text, TEXT.refreshText);
         wrap.appendChild(text);
 
         
@@ -2002,7 +2136,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'timegem-ven-refresh__button';
-        button.textContent = REFRESH_LABEL;
+        setText(button, TEXT.refreshButton);
         wrap.appendChild(button);
 
         var status = document.createElement('p');
@@ -2020,15 +2154,15 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             if (!timegemId) return;
 
             button.disabled = true;
-            button.textContent = 'Refreshing…';
-            status.textContent = 'Fetching your latest listening data from Spotify…';
+            setText(button, TEXT.refreshButtonBusy);
+            setText(status, TEXT.refreshFetching);
             reconnectSlot.innerHTML = '';
 
             var venueId = getVenueIdFromQueue();
 
             refreshVenueProfile(timegemId, venueId).then(function (result) {
                 button.disabled = false;
-                button.textContent = REFRESH_LABEL;
+                setText(button, TEXT.refreshButton);
 
                 if (result.ok && result.data && result.data.profile) {
                     // Stored data changed, so every cached derivation of it is stale.
@@ -2040,27 +2174,28 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                     var slot = profileIdentity();
                     if (slot) renderProfile(slot, result.data, { disconnect: false, featured: true });
 
-                    renderHomeGemsMessage('Updating your gems…');
+                    renderHomeGemsMessage(TEXT.gemsUpdating);
                     applyRecommendations(timegemId, venueId);
 
                     var when = new Date();
-                    status.textContent = 'Done — your profile was updated at ' +
-                        when.toLocaleTimeString(pageLocale(), { hour: '2-digit', minute: '2-digit' }) + '.';
+                    setText(status, fmt(TEXT.refreshDone, {
+                        time: when.toLocaleTimeString(pageLocale(), { hour: '2-digit', minute: '2-digit' })
+                    }));
                     return;
                 }
 
                 if (result.reconnect) {
-                    status.textContent = 'Your Spotify connection has expired. Connect again to refresh — you will keep the same profile and likes.';
+                    setText(status, TEXT.refreshExpired);
                     appendConnectChoices(reconnectSlot);
                     return;
                 }
 
                 if (result.status === 429) {
-                    status.textContent = 'Spotify is busy right now. Please try again in a minute.';
+                    setText(status, TEXT.refreshRateLimited);
                     return;
                 }
 
-                status.textContent = "We couldn't refresh your data right now. Please try again later.";
+                setText(status, TEXT.refreshError);
             });
         });
 
@@ -2079,16 +2214,16 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         function message(text) {
             var line = document.createElement('p');
-            line.textContent = text;
+            setText(line, text);
             body.appendChild(line);
         }
 
         if (profileLikesView.failed) {
-            message("We couldn't load your likes right now.");
+            message(TEXT.likesError);
             return;
         }
         if (!likes.length) {
-            message('You have not liked a show yet.');
+            message(TEXT.likesEmpty);
             return;
         }
 
@@ -2120,7 +2255,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             var unlike = document.createElement('button');
             unlike.type = 'button';
             unlike.className = 'timegem-ven-gem__unlike';
-            unlike.textContent = 'Unlike';
+            setText(unlike, TEXT.unlike);
             unlike.addEventListener('click', function () {
                 var timegemId = getTimegemId();
                 if (!timegemId || !like.event_id) return;
@@ -2140,7 +2275,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         if (!list.childNodes.length) {
-            message('Loading your likes…');
+            message(TEXT.likesLoading);
             return;
         }
         body.appendChild(list);
@@ -2148,7 +2283,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function renderProfileLikes(slot, hasId) {
         var title = document.createElement('h2');
-        title.textContent = 'My likes';
+        setText(title, TEXT.likesTitle);
         slot.appendChild(title);
 
         var body = document.createElement('div');
@@ -2157,13 +2292,13 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         if (!hasId) {
             var signedOut = document.createElement('p');
-            signedOut.textContent = 'Connect your music account under My settings to save likes.';
+            setText(signedOut, TEXT.likesSignedOut);
             body.appendChild(signedOut);
             return;
         }
 
         var loading = document.createElement('p');
-        loading.textContent = 'Loading your likes…';
+        setText(loading, TEXT.likesLoading);
         body.appendChild(loading);
 
         fetchVenueLikes(getTimegemId()).then(function (likes) {
@@ -2254,7 +2389,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         var nav = document.createElement('div');
         nav.className = 'timegem-ven-profile-nav';
         nav.setAttribute('role', 'tablist');
-        nav.setAttribute('aria-label', 'My profile');
+        nav.setAttribute('aria-label', TEXT.profileNavLabel);
         side.appendChild(nav);
 
         var main = document.createElement('div');
@@ -2284,7 +2419,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             tab.id = 'timegem-ven-tab-' + item.id;
             tab.setAttribute('role', 'tab');
             tab.setAttribute('aria-controls', panel.id);
-            tab.textContent = item.label;
+            setText(tab, item.label);
             panel.setAttribute('aria-labelledby', tab.id);
             nav.appendChild(tab);
             tabs.push(tab);
@@ -2341,7 +2476,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         var gemsTitle = document.createElement('h2');
-        gemsTitle.textContent = 'My recommendations';
+        setText(gemsTitle, TEXT.recommendationsTitle);
         panels.recommendations.appendChild(gemsTitle);
         var gemsBody = document.createElement('div');
         gemsBody.className = 'timegem-ven-profile-page__gems-body';
@@ -2367,20 +2502,20 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         if (!hasId) {
             if (panels.profile) {
                 var signedOut = document.createElement('p');
-                signedOut.textContent = 'Connect your music account under My settings to see your top artists and tracks.';
+                setText(signedOut, TEXT.profileSignedOut);
                 panels.profile.appendChild(signedOut);
             }
-            renderHomeGemsMessage('Connect to see which shows match your taste this month.');
+            renderHomeGemsMessage(TEXT.gemsSignedOut);
             return;
         }
 
         if (panels.profile) {
             var loading = document.createElement('p');
             loading.className = 'timegem-ven-fineprint';
-            loading.textContent = 'Loading your profile…';
+            setText(loading, TEXT.profileLoading);
             panels.profile.appendChild(loading);
         }
-        renderHomeGemsMessage('Loading your gems…');
+        renderHomeGemsMessage(TEXT.gemsLoading);
 
         var timegemId = getTimegemId();
         var cached = profileCache[timegemId];
@@ -2395,7 +2530,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             if (!data || !data.profile) {
                 slot.innerHTML = '';
                 var fail = document.createElement('p');
-                fail.textContent = "We couldn't load your profile right now. Please try again later.";
+                setText(fail, TEXT.profileError);
                 slot.appendChild(fail);
                 return;
             }
@@ -2485,1161 +2620,11 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function injectStyles() {
         if (document.getElementById('timegem-ven-styles')) return;
-        var style = document.createElement('style');
-        style.id = 'timegem-ven-styles';
-        style.textContent = `
-            .wpt_listing .wp_theatre_event {
-                position: relative;
-            }
-            .timegem-ven-match-details {
-                position: absolute;
-                top: 0px;
-                right: 16px;
-                background: #000;
-                color: #e5fa4d;
-                padding: 12px 14px 0px 10px;
-                border-radius: 0;
-                font-size: 24px;
-                line-height: 1;
-                display: inline-flex;
-                align-items: center;
-                z-index: 2;
-                pointer-events: none;
-            }
-
-            .timegem-ven-match-details:after {
-        content: "";
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
-    background-color:black;
-    width: 100%;
-    height: 24px;
-    transition: none;
-    position: absolute;
-    bottom: calc(.5px - 24px);
-    left: 0;
-}
-
-            .timegem-ven-symbols {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                line-height: 1;
-                width: 64px;
-                       justify-content: center;
-    align-items: center;
-                
-            }
-            .timegem-ven-home .timegem-ven-symbols {
-            padding-left:8px;
-            justify-content: flex-end;
-            }
-
-            .timegem-ven-about-legend {
-                list-style: none;
-                margin: 16px 0 0;
-                padding: 0;
-            }
-            .timegem-ven-about-legend li {
-                display: flex;
-                align-items: center;
-                gap: 14px;
-                padding: 8px 0;
-            }
-            .timegem-ven-about-legend .timegem-ven-symbols {
-                min-width: 4.2em;
-                color: greenyellow;
-                font-size: 18px;
-            }
-
-            .wp_theatre_event:hover .timegem-ven-match-details {
-                background:red;
-            }
-
-            .wp_theatre_event:hover .timegem-ven-match-details:after {
-                background-color:red;
-            }
-
-            .timegem-ven-icon {
-                width: .82em;
-                height: 1.48em;
-                display: block;
-                flex: none;
-            }
-            .timegem-ven-icon .st0,
-            .timegem-ven-icon .st1 {
-                fill: currentColor;
-            }
-            .timegem-ven-why {
-                background: black;
-                color: white;
-                padding: 10px 14px;
-                margin-bottom: 12px;
-            }
-            .timegem-ven-dialog {
-                border: none;
-                padding: 0;
-                background: transparent;
-                max-width: 520px;
-                width: calc(100% - 32px);
-            }
-            .timegem-ven-dialog::backdrop {
-                background: rgba(0, 0, 0, 0.6);
-            }
-            .timegem-ven-dialog-inner {
-                background: #000;
-                color: #fff;
-                padding: 28px 28px 24px;
-                position: relative;
-            }
-            .timegem-ven-dialog-inner h2 {
-                margin: 0 0 12px;
-                
-                color: greenyellow;
-            }
-            .timegem-ven-hook {
-                margin: 0 0 14px;
-                font-size: 17px;
-                font-weight: 800;
-                line-height: 1.3;
-                text-transform: uppercase;
-                letter-spacing: .02em;
-            }
-            .timegem-ven-dialog-inner p {
-                margin: 0 0 12px;
-                font-size: 15px;
-                line-height: 1.5;
-            }
-            .timegem-ven-dialog-close {
-                position: absolute;
-                top: 8px;
-                right: 10px;
-                background: none;
-                border: none;
-                color: #fff;
-                font-size: 26px;
-                line-height: 1;
-                cursor: pointer;
-                padding: 4px 8px;
-            }
-            .timegem-ven-dialog-close:hover {
-                color: greenyellow;
-            }
-            .timegem-ven-dialog-inner a {
-                color: greenyellow;
-            }
-            /* Connect buttons: same look as the onboarding .spotify-connect-btn */
-            .timegem-ven-connect {
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                flex: 1 1 0;
-                min-width: 0;
-                box-sizing: border-box;
-                padding: 8px 12px;
-                margin: 0;
-                background: #000;
-                color: white !important;
-                font-family: 'ABC Gravity', sans-serif;
-                font-weight: 800;
-                font-size: 24px;
-                line-height: 0.8;
-                min-height: 48px;
-                text-decoration: none;
-                text-transform: uppercase;
-                letter-spacing: .02em;
-                text-align: left;
-                border: none;
-                border-radius: 0;
-                cursor: pointer;
-                transition: none;
-            }
-            .timegem-ven-connect:hover {
-                background: red;
-                color: #fff !important;
-                text-decoration: none;
-            }
-            .timegem-ven-connect__icon {
-                width: 32px;
-                height: 32px;
-                flex: none;
-                display: block;
-                color: white;
-            }
-            .timegem-ven-connect:hover .timegem-ven-connect__icon {
-                color: #fff;
-            }
-            .timegem-ven-connect-choices {
-                display: flex;
-                flex-direction: row;
-                flex-wrap: nowrap;
-                align-items: stretch;
-                justify-content: space-between;
-                gap: 16px;
-                margin: 16px 0;
-            }
-            .timegem-ven-fineprint {
-                font-size: 12px;
-                line-height: 1.5;
-                opacity: .7;
-                margin: 0;
-            }
-            .timegem-ven-dialog-body {
-                max-height: 70vh;
-                overflow-y: auto;
-            }
-
-            /* Connect state: Rotown onboarding .step__wrapper look */
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
-                padding: 40px 40px 80px;
-                color: #000;
-                text-align: center;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
-                content: '';
-                position: absolute;
-                inset: 0;
-                background: #e5fa4d;
-                clip-path: polygon(
-                    0 0,
-                    100% 0,
-                    100% calc(100% - 56px),
-                    calc(50% + 48px) calc(100% - 56px),
-                    50% calc(100% - 16px),
-                    calc(50% - 48px) calc(100% - 56px),
-                    0 calc(100% - 56px)
-                );
-                pointer-events: none;
-                z-index: 0;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-body {
-                position: relative;
-                z-index: 1;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-close {
-                z-index: 2;
-                color: #000;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-close:hover {
-                color: #fff;
-            }
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner h2,
-            .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner a {
-                color: #000;
-            }
-               
-
-            .timegem-ven-profile-head {
-                display: flex;
-                align-items: center;
-                gap: 14px;
-                margin-bottom: 10px;
-            }
-            .timegem-ven-profile-head h2 {
-                margin: 0;
-            }
-            .timegem-ven-avatar {
-                width: 56px;
-                height: 56px;
-                border-radius: 50%;
-                object-fit: cover;
-                flex: none;
-            }
-            .timegem-ven-genres {
-                margin: 0 0 8px;
-                font-size: 12px;
-                text-transform: uppercase;
-                letter-spacing: .06em;
-                color: greenyellow;
-            }
-            .timegem-ven-subhead {
-                margin: 48px 0 8px;
-                font-size: 20px;
-                text-transform: uppercase;
-            }
-            .timegem-ven-subhead:first-of-type {
-                margin-top: 20px;
-            }
-            .timegem-ven-list {
-                list-style: none;
-                margin: 0;
-                padding: 0;
-            }
-            .timegem-ven-list li {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 6px 0;
-            }
-            .timegem-ven-list-media {
-                position: relative;
-                flex: none;
-                width: 40px;
-                height: 40px;
-            }
-            .timegem-ven-list-media img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
-            }
-            .timegem-ven-list-media .timegem-ven-list-rank {
-                position: absolute;
-                top: 0;
-                left: 0;
-                z-index: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 18px;
-                height: 18px;
-                aspect-ratio: 1;
-                margin: 0;
-                background: #e5fa4d;
-                color: #111;
-                font-size: 11px;
-                font-weight: 800;
-                line-height: 1;
-                opacity: 1;
-            }
-            .timegem-ven-list img {
-                width: 40px;
-                height: 40px;
-                object-fit: cover;
-                flex: none;
-            }
-            .timegem-ven-list-primary {
-                display: block;
-                font-weight: 700;
-                font-size: 14px;
-                line-height: 1.3;
-            }
-            .timegem-ven-profile-foot {
-                margin-top: 22px;
-            }
-            /* Inside the settings card: a divider, not a separate box. */
-            .timegem-ven-refresh .timegem-ven-profile-foot {
-                margin-top: 24px;
-                padding-top: 24px;
-                border-top: 1px solid rgba(0, 0, 0, .12);
-            }
-
-            .timegem-ven-profile-foot p:first-child {
-                font-size: 14px;
-                text-transform: uppercase;
-                letter-spacing: .08em;
-                opacity: .65;
-                margin-bottom: 0;
-            }
-
-            .timegem-ven-disconnect {
-                -webkit-appearance: none;
-                appearance: none;
-                background: transparent;
-                color: black;
-                border: 2px solid black;
-                font-size: 24px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                font-family: 'ABC Gravity', sans-serif;
-                padding: 8px 16px;
-                cursor: pointer;
-            }
-            .timegem-ven-refresh {
-                margin: 0 0 24px;
-                background: white;
-                padding: 16px;
-            }
-            .timegem-ven-refresh p {
-                margin: 0 0 24px;
-            }
-            .timegem-ven-refresh__button {
-                -webkit-appearance: none;
-                appearance: none;
-                background: black;
-                color: white;
-                border: 2px solid black;
-                font-size: 24px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                font-family: 'ABC Gravity', sans-serif;
-                padding: 8px 16px;
-                cursor: pointer;
-            }
-            .timegem-ven-refresh__button:hover,
-            .timegem-ven-refresh__button:focus-visible {
-                background: white;
-                color: black;
-            }
-            .timegem-ven-refresh__button:disabled {
-                opacity: .6;
-                cursor: progress;
-            }
-            .timegem-ven-refresh__status {
-                min-height: 1.4em;
-                margin: 12px 0 0;
-            }
-            .timegem-ven-refresh__status:empty {
-                display: none;
-            }
-            .timegem-ven-refresh__reconnect:not(:empty) {
-                margin-top: 12px;
-            }
-            .timegem-ven-disconnect:hover,
-            .timegem-ven-disconnect:focus-visible {
-                background: black;
-                color: white;
-                
-            }
-            .timegem-ven-list-secondary {
-                display: block;
-                font-size: 12px;
-                opacity: .65;
-                line-height: 1.3;
-            }
-            .cta-discover {
-                cursor: pointer;
-            }
-            nav .button-cta {
-                position: relative;
-            }
-            .timegem-ven-cta-dot {
-                position: absolute;
-                top: 4px;
-                right: 4px;
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background: red;
-                pointer-events: none;
-            }
-            .timegem-ven-block_wrapper {
-                max-width: 1320px;
-                margin: 0 auto;
-            }
-            .timegem-ven-block {
-                position: relative;
-                background: #e5fa4d;
-                color: black;
-                padding: 28px 52px 48px 32px;
-                margin: 0px 0;
-                border-top: 8px solid black;
-            }
-
-            .timegem-ven-block.timegem-ven-home {
-            background:white;
-            }
-                
-            .timegem-ven-block__help {
-                position: absolute;
-                top: 16px;
-                right: 16px;
-                z-index: 3;
-            }
-            .timegem-ven-block__help-btn {
-                -webkit-appearance: none;
-                appearance: none;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                padding: 0;
-                border: 2px solid #00000060;
-                border-radius: 50%;
-                background: transparent;
-                color: inherit;
-                font-family: inherit;
-                font-size: 14px;
-                font-weight: 700;
-                line-height: 1;
-                cursor: pointer;
-            }
-            .timegem-ven-block__help-btn:hover,
-            .timegem-ven-block__help-btn:focus-visible {
-                background: black;
-                color: #e5fa4d;
-            }
-            .timegem-ven-block__help-tip {
-                display: none;
-                position: absolute;
-                top: calc(100% + 2px);
-                right: 0;
-                width: 240px;
-                padding: 12px 14px;
-                background: black;
-                color: white;
-                font-size: 14px;
-                font-weight: 400;
-                line-height: 1.4;
-                text-transform: none;
-                letter-spacing: 0;
-            }
-            .timegem-ven-block__help:hover .timegem-ven-block__help-tip,
-            .timegem-ven-block__help:focus-within .timegem-ven-block__help-tip,
-            .timegem-ven-block__help.is-open .timegem-ven-block__help-tip {
-                display: block;
-            }
-            .timegem-ven-block__help-tip p {
-                margin: 0 0 8px;
-            }
-            .timegem-ven-block__help-link {
-                color: #e5fa4d;
-                font-weight: 700;
-                text-decoration: underline;
-            }
-            .timegem-ven-block__help-link:hover,
-            .timegem-ven-block__help-link:focus-visible {
-                color: white;
-            }
-            .timegem-ven-block__like {
-                margin-top: 20px;
-            }
-            .timegem-ven-block__like-btn {
-                -webkit-appearance: none;
-                appearance: none;
-                background: black;
-                color: white;
-                
-                font-family: 'ABC Gravity', sans-serif;
-                font-size: 24px;
-                font-weight: 800;
-                
-                text-transform: uppercase;
-                padding: 6px 16px;
-                cursor: pointer;
-            }
-            .timegem-ven-block__like-btn.is-liked {
-                background: red;
-                
-            }
-            .timegem-ven-block__like-btn:disabled {
-                opacity: .6;
-                cursor: default;
-            }
-            .timegem-ven-block__text {
-                margin: 0;
-                
-                text-transform: uppercase;
-               
-            }
-            .timegem-ven-block__body {
-                margin: 8px 0 0;
-                font-size: 15px;
-                line-height: 1.5;
-                font-weight: 400;
-                text-transform: none;
-            }
-            .timegem-ven-block__symbol {
-                color: black;
-                margin: 0px 0 12px 0;
-                vertical-align: -0.18em;
-            }
-            .timegem-ven-block__reasons {
-                margin: 12px 0 0;
-                padding: 0 0 0 18px;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-            .timegem-ven-block__reasons li {
-                margin: 2px 0;
-            }
-            .timegem-ven-block__empty {
-                margin: 8px 0 0;
-                font-size: 15px;
-                line-height: 1.5;
-                text-transform: none;
-            }
-            .timegem-ven-tabs {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0px;
-                margin: 16px 0 8px;
-            }
-            .timegem-ven-tab {
-                -webkit-appearance: none;
-                appearance: none;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                font-family: 'ABC Gravity', sans-serif;
-                background: transparent;
-                color: inherit;
-                font: inherit;
-                font-size: 20px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                letter-spacing: .06em;
-                padding: 8px 13px;
-                
-                cursor: pointer;
-            }
-
-            .timegem-ven-tab span {
-                font-family: 'ABC Gravity', sans-serif;
-            }
-
-            .timegem-ven-tab:hover {
-                background: red;
-                color: #fff;
-            }
-            .timegem-ven-tab.is-active {
-                background: #000;
-                color: #fff;
-                border-color: #000;
-            }
-            .timegem-ven-tab__count {
-                font-size: 11px;
-                font-weight: 700;
-                opacity: .55;
-            }
-            .timegem-ven-tab.is-active .timegem-ven-tab__count {
-                opacity: .75;
-            }
-
-            
-
-            .timegem-ven-tab:focus-visible {
-                outline: 2px solid #000;
-                outline-offset: 2px;
-            }
-            .timegem-ven-panel[hidden] {
-                display: none;
-            }
-            .timegem-ven-month {
-                margin-top: 20px;
-            }
-            .timegem-ven-month:first-child {
-                margin-top: 10px;
-            }
-            .timegem-ven-month__name {
-                margin: 0 0 6px;
-                font-size: 12px;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: .08em;
-                opacity: .55;
-            }
-            .timegem-ven-month__list {
-                list-style: none;
-                margin: 0;
-                padding: 0;
-            }
-            .timegem-ven-gem {
-                position: relative;
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 12px;
-                padding: 0px 0;
-                border-top: 1px solid rgba(0, 0, 0, .12);
-                cursor: pointer;
-            }
-            .timegem-ven-gem__name:after {
-                content: "";
-                position: absolute;
-                inset: 0;
-            }
-            .timegem-ven-gem:first-child {
-                border-top: 0;
-            }
-            .timegem-ven-gem:hover {
-            background: red;
-            color: #fff;
-            }
-
-           
-
-            .timegem-ven-gem__date {
-                flex: none;
-                min-width: 64px;
-                font-size: 20px;
-                font-weight: 700;
-                text-transform: uppercase;
-                opacity: 1;
-                font-family: ABC Gravity;
-                display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    line-height: 0.9;
-    padding:8px;
-    gap:4px;
-    opacity:0.7;
-            }
-
-            .timegem-ven-gem__day {
-                font-size: 32px;
-            }
-
-            .timegem-ven-gem .timegem-ven-symbols {
-                flex: none;
-                font-size: 17px;
-            }
-            .timegem-ven-gem__name {
-                font-weight: 800;
-                text-transform: uppercase;
-                text-decoration: none;
-                color: inherit;
-                line-height: 1.2;
-                font-family: ABC Gravity;
-                font-size:32px;
-                transition:none;
-            }
-            .timegem-ven-gem__name:hover {
-                text-decoration: none;
-                color:#FFF;
-            }
-                 .timegem-ven-gem:hover .timegem-ven-symbols {
-                color:black;
-            }
-
-
-            .timegem-ven-gem__tickets {
-                position: relative;
-                z-index: 1;
-                margin-left: auto;
-                flex: none;
-                background: #ff7b00;
-                
-                padding: 7px 14px;
-                font-size: 12px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                letter-spacing: .06em;
-                text-decoration: none;
-                color: inherit;
-                white-space: nowrap;
-                transition:none;
-            }
-            .timegem-ven-gem__tickets:hover,
-            .timegem-ven-gem__tickets:focus-visible {
-                background: red;
-                color: #fff;
-                
-            }
-                .timegem-ven-gem:hover .timegem-ven-gem__tickets {
-                background: red;
-                color: #fff;
-                }
-
-            .timegem-ven-gem__unlike {
-                position: relative;
-                z-index: 1;
-                -webkit-appearance: none;
-                appearance: none;
-                margin-left: auto;
-                flex: none;
-                background: transparent;
-                color: inherit;
-                border: 1px solid currentColor;
-                font: inherit;
-                font-size: 12px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                letter-spacing: .06em;
-                padding: 7px 14px;
-                cursor: pointer;
-            }
-            .timegem-ven-gem__unlike:hover,
-            .timegem-ven-gem__unlike:focus-visible {
-                background: #111;
-                color: #fff;
-            }
-            .timegem-ven-gem__unlike:disabled {
-                opacity: .5;
-                cursor: default;
-            }
-            .timegem-ven-block[hidden] {
-                display: none;
-            }
-            .timegem-ven-block__caption {
-                margin: 16px 0 10px;
-                font-size: 12px;
-                text-transform: uppercase;
-                letter-spacing: .08em;
-                opacity: .65;
-            }
-            .timegem-ven-block__overview {
-                display: inline-block;
-                margin-top: 24px;
-                padding: 12px 20px;
-                background: black;
-                color: #e5fa4d;
-                font-size: 14px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-                letter-spacing: .06em;
-                text-decoration: none;
-                white-space: nowrap;
-                transition: none;
-            }
-            .timegem-ven-block__overview:hover,
-            .timegem-ven-block__overview:focus-visible {
-                background: red;
-                color: #fff;
-                text-decoration: none;
-            }
-            .timegem-ven-block__matches {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                margin-top: 24px;
-            }
-            .timegem-ven-block__match {
-                display: inline-flex;
-    align-items: flex-start;
-    gap: 8px;
-    background: none;
-    padding: 0;
-    border-radius: 0;
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 1.2;
-    flex-direction: column;
-    justify-content: flex-start;
-    width: 80px;
-            }
-
-            .is-genres .timegem-ven-block__match {
-            background: black;
-            color: #fff;
-            width: max-content;
-            }
-
-            .timegem-ven-block__matches.is-genres .timegem-ven-block__match {
-                padding: 6px 14px;
-                text-transform: uppercase;
-                letter-spacing: .04em;
-            }
-            .timegem-ven-block__match img {
-                width: 64px;
-                height: 64px;
-                border-radius: 0%;
-                object-fit: cover;
-                flex: none;
-                display: block;
-            }
-            .timegem-ven-block__match.is-more {
-                opacity: .6;
-                padding: 6px 14px;
-            }
-            @keyframes timegem-ven-shimmer {
-                0% { background-position: -200px 0; }
-                100% { background-position: calc(200px + 100%) 0; }
-            }
-            .timegem-ven-skeleton {
-                display: inline-block;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.13);
-                background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0) 100%);
-                background-repeat: no-repeat;
-                background-size: 200px 100%;
-                animation: timegem-ven-shimmer 1.2s ease-in-out infinite;
-            }
-            .timegem-ven-skeleton.is-bar {
-                vertical-align: middle;
-            }
-            .timegem-ven-skeleton.is-avatar {
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                flex: none;
-            }
-            .timegem-ven-skeleton.is-chip {
-                height: 38px;
-                border-radius: 999px;
-                background-color: rgba(255, 255, 255, 0.12);
-            }
-            .timegem-ven-badge-loading {
-                min-width: 54px;
-                height: 33px;
-                background-color: rgba(0, 0, 0, 0.55);
-                background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(173, 255, 47, 0.28) 50%, rgba(255, 255, 255, 0) 100%);
-            }
-            @media (prefers-reduced-motion: reduce) {
-                .timegem-ven-skeleton {
-                    animation: none;
-                }
-            }
-            html[data-timegem-has-id] .cta-discover {
-                display: none !important;
-            }
-            html[data-timegem-likes="0"] #timegem-ven-tab-likes,
-            html[data-timegem-likes="0"] #timegem-ven-panel-likes,
-            html[data-timegem-likes="0"] a[href*="/my-likes"] {
-                display: none !important;
-            }
-            .timegem-ven-profile-page {
-                color: inherit;
-            }
-            .timegem-ven-profile-page__frame {
-                display: grid;
-                grid-template-columns: 240px minmax(0, 1fr);
-                column-gap: 48px;
-                box-sizing: border-box;
-            }
-            .timegem-ven-profile-page__side {
-                position: sticky;
-                top: 24px;
-                align-self: start;
-            }
-            .timegem-ven-profile-nav {
-                display: flex;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 4px;
-                margin-top: 0;
-            }
-            .timegem-ven-profile-nav__tab {
-                -webkit-appearance: none;
-                appearance: none;
-                display: block;
-                background: transparent;
-                color: inherit;
-                border: 0;
-                text-align: left;
-                text-decoration: none;
-                font-family: 'ABC Gravity', sans-serif;
-                font-size: 24px;
-                font-weight: 800;
-                
-                text-transform: uppercase;
-                padding: 12px 14px;
-                cursor: pointer;
-            }
-            .timegem-ven-profile-nav__tab:hover {
-                background: rgba(0, 0, 0, .06);
-            }
-            .timegem-ven-profile-nav__tab.is-active {
-                background: #e5fa4d;
-                color: #111;
-            }
-            .timegem-ven-profile-nav__tab:focus-visible {
-                outline: 2px solid #e5fa4d;
-                outline-offset: 2px;
-            }
-            .timegem-ven-profile-page__main {
-                min-width: 0;
-            }
-            .timegem-ven-profile-page__panel[hidden] {
-                display: none;
-            }
-            .timegem-ven-profile-page__identity h2,
-            .timegem-ven-profile-page__panel > h2 {
-                margin: 0 0 20px;
-                font-size: 40px;
-                line-height: 1;
-                text-transform: uppercase;
-            }
-            .timegem-ven-profile-page__identity > p,
-            .timegem-ven-profile-page__panel > p {
-                margin: 0 0 16px;
-                font-size: 20px;
-                line-height: 1.5;
-            }
-            .timegem-ven-profile-page .timegem-ven-avatar {
-                width: 88px;
-                height: 88px;
-            }
-            .timegem-ven-profile-page .timegem-ven-list-media {
-                width: 48px;
-                height: 48px;
-            }
-            .timegem-ven-profile-page .timegem-ven-list img {
-                width: 48px;
-                height: 48px;
-            }
-            .timegem-ven-featured {
-                display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 18px;
-                margin: 0 0 12px;
-            }
-            .timegem-ven-featured__item {
-                position: relative;
-            }
-            .timegem-ven-featured__item .timegem-ven-list-rank {
-                position: absolute;
-                top: 0;
-                left: 0;
-                z-index: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 32px;
-                height: 32px;
-                aspect-ratio: 1;
-                margin: 0;
-                background: #e5fa4d;
-                color: #111;
-                font-size: 14px;
-                opacity: 1;
-            }
-            .timegem-ven-featured__item img {
-                width: 100%;
-                aspect-ratio: 1;
-                height: auto;
-                object-fit: cover;
-                display: block;
-                margin-bottom: 10px;
-            }
-            .timegem-ven-featured__item .timegem-ven-list-primary {
-                font-size: 15px;
-                font-weight: 700;
-                line-height: 1.25;
-            }
-            .timegem-ven-featured__item .timegem-ven-list-secondary {
-                margin-top: 2px;
-                font-size: 13px;
-                opacity: .6;
-            }
-            .timegem-ven-genre-card {
-                aspect-ratio: 1;
-                background-color: #e7b4d8;
-                background-size: cover;
-                background-position: center;
-                display: flex;
-                align-items: flex-end;
-                justify-content: flex-start;
-                padding: 14px;
-                box-sizing: border-box;
-            }
-            .timegem-ven-genre-card span {
-                color: #fff;
-                font-family: 'ABC Gravity', sans-serif;
-                font-size: 32px;
-                font-weight: 800;
-                line-height: 1;
-                text-transform: uppercase;
-            }
-            
-
-            
-            .timegem-ven-profile-page__gems {
-                
-            }
-            .timegem-ven-profile-page__gems h2,
-            .timegem-ven-profile-page__gems .timegem-ven-profile-head h2 {
-                color: #111;
-            }
-            .timegem-ven-profile-page__gems > h2 {
-                margin: 0 0 8px;
-            }
-            .timegem-ven-profile-page__gems .timegem-ven-disconnect {
-                color: #111;
-                border-color: rgba(0, 0, 0, .25);
-            }
-
- .timegem-ven-profile-page__gems .timegem-ven-disconnect:hover {
-                color: white;
-                
-            }
-            .timegem-ven-profile-page__gems .timegem-ven-tab.is-active {
-                background: #000;
-                color: #fff;
-            }
-            .timegem-ven-profile-page__gems .timegem-ven-gem {
-                border-top-color: rgba(0, 0, 0, .12);
-            }
-            @media (max-width: 640px) {
-                .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
-                    padding: 28px 24px 56px;
-                }
-                .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
-                    clip-path: polygon(
-                        0 0,
-                        100% 0,
-                        100% calc(100% - 48px),
-                        calc(50% + 48px) calc(100% - 48px),
-                        50% calc(100% - 16px),
-                        calc(50% - 48px) calc(100% - 48px),
-                        0 calc(100% - 48px)
-                    );
-                }
-                .timegem-ven-connect-choices {
-                    flex-direction: column;
-                    gap: 10px;
-                }
-                .timegem-ven-connect {
-                    flex: none;
-                    width: 100%;
-                }
-
-                /* Gem rows: name + match symbols on the first line, date + button on the second. */
-                .timegem-ven-gem {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) auto;
-                    grid-template-areas:
-                        "name symbol"
-                        "date action";
-                    align-items: center;
-                    column-gap: 12px;
-                    row-gap: 6px;
-                    padding: 12px 0;
-                }
-                .timegem-ven-gem .timegem-ven-symbols {
-                    grid-area: symbol;
-                    justify-self: end;
-                }
-                .timegem-ven-gem__name {
-                    grid-area: name;
-                    font-size: 26px;
-                    overflow-wrap: anywhere;
-                }
-                .timegem-ven-gem__date {
-                    grid-area: date;
-                    min-width: 0;
-                    padding: 0;
-                    font-size: 16px;
-                }
-                .timegem-ven-gem__day {
-                    font-size: 26px;
-                }
-                .timegem-ven-gem__tickets,
-                .timegem-ven-gem__unlike {
-                    grid-area: action;
-                    margin-left: 0;
-                    justify-self: end;
-                }
-            }
-            @media (max-width: 860px) {
-
-                 .is-connect h2 {
-                font-size: 48px;
-                }
-
-                .timegem-ven-gem {
-                row-gap:0px;
-                padding: 8px 0;
-                }
-
-                .timegem-ven-profile-page__frame {
-                    grid-template-columns: 1fr;
-                    column-gap: 0;
-                }
-                .timegem-ven-profile-page__side {
-                    position: static;
-                }
-                .timegem-ven-profile-nav {
-                    flex-direction: row;
-                    flex-wrap: wrap;
-                    margin-top: 20px;
-                    margin-bottom: 28px;
-                }
-                .timegem-ven-profile-page__identity h2,
-                .timegem-ven-profile-page__panel > h2 {
-                    font-size: 32px;
-                }
-            }
-        `;
-        document.head.appendChild(style);
+        var link = document.createElement('link');
+        link.id = 'timegem-ven-styles';
+        link.rel = 'stylesheet';
+        link.href = STYLESHEET_URL;
+        document.head.appendChild(link);
     }
 
     // Set the flag before waiting on the DOM: <html> already exists, so the hide
