@@ -1099,6 +1099,24 @@ html[data-timegem-likes="0"] a[href*="/my-likes"] {
         width: 100%;
     }
 
+    /* Month tabs: one row, swipe sideways, snap to each tab. */
+    .timegem-ven-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+    }
+    .timegem-ven-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .timegem-ven-tab {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+    }
+
     /* Gem rows: name + match symbols on the first line, date + button on the second. */
     .timegem-ven-gem {
         display: grid;
