@@ -1,0 +1,1150 @@
+.wpt_listing .wp_theatre_event {
+    position: relative;
+}
+.timegem-ven-match-details {
+    position: absolute;
+    top: 0px;
+    right: 16px;
+    background: #000;
+    color: #e5fa4d;
+    padding: 12px 14px 0px 10px;
+    border-radius: 0;
+    font-size: 24px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.timegem-ven-match-details:after {
+content: "";
+clip-path: polygon(50% 100%, 0 0, 100% 0);
+background-color:black;
+width: 100%;
+height: 24px;
+transition: none;
+position: absolute;
+bottom: calc(.5px - 24px);
+left: 0;
+}
+
+.timegem-ven-symbols {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+    width: 64px;
+           justify-content: center;
+align-items: center;
+    
+}
+.timegem-ven-home .timegem-ven-symbols {
+padding-left:8px;
+justify-content: flex-end;
+}
+
+.timegem-ven-about-legend {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+}
+.timegem-ven-about-legend li {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+}
+.timegem-ven-about-legend .timegem-ven-symbols {
+    min-width: 4.2em;
+    color: greenyellow;
+    font-size: 18px;
+}
+
+.wp_theatre_event:hover .timegem-ven-match-details {
+    background:red;
+}
+
+.wp_theatre_event:hover .timegem-ven-match-details:after {
+    background-color:red;
+}
+
+.timegem-ven-icon {
+    width: .82em;
+    height: 1.48em;
+    display: block;
+    flex: none;
+}
+.timegem-ven-icon .st0,
+.timegem-ven-icon .st1 {
+    fill: currentColor;
+}
+.timegem-ven-why {
+    background: black;
+    color: white;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+.timegem-ven-dialog {
+    border: none;
+    padding: 0;
+    background: transparent;
+    max-width: 520px;
+    width: calc(100% - 32px);
+}
+.timegem-ven-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+.timegem-ven-dialog-inner {
+    background: #000;
+    color: #fff;
+    padding: 28px 28px 24px;
+    position: relative;
+}
+.timegem-ven-dialog-inner h2 {
+    margin: 0 0 12px;
+    
+    color: greenyellow;
+}
+.timegem-ven-hook {
+    margin: 0 0 14px;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.timegem-ven-dialog-inner p {
+    margin: 0 0 12px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+.timegem-ven-dialog-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.timegem-ven-dialog-close:hover {
+    color: greenyellow;
+}
+.timegem-ven-dialog-inner a {
+    color: greenyellow;
+}
+/* Connect buttons: same look as the onboarding .spotify-connect-btn */
+.timegem-ven-connect {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    margin: 0;
+    background: #000;
+    color: white !important;
+    font-family: 'ABC Gravity', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    line-height: 0.8;
+    min-height: 48px;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    text-align: left;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    transition: none;
+}
+.timegem-ven-connect:hover {
+    background: red;
+    color: #fff !important;
+    text-decoration: none;
+}
+.timegem-ven-connect__icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    display: block;
+    color: white;
+}
+.timegem-ven-connect:hover .timegem-ven-connect__icon {
+    color: #fff;
+}
+.timegem-ven-connect-choices {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 16px 0;
+}
+.timegem-ven-fineprint {
+    font-size: 12px;
+    line-height: 1.5;
+    opacity: .7;
+    margin: 0;
+}
+.timegem-ven-dialog-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Connect state: Rotown onboarding .step__wrapper look */
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
+    padding: 40px 40px 80px;
+    color: #000;
+    text-align: center;
+}
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #e5fa4d;
+    clip-path: polygon(
+        0 0,
+        100% 0,
+        100% calc(100% - 56px),
+        calc(50% + 48px) calc(100% - 56px),
+        50% calc(100% - 16px),
+        calc(50% - 48px) calc(100% - 56px),
+        0 calc(100% - 56px)
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-body {
+    position: relative;
+    z-index: 1;
+}
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-close {
+    z-index: 2;
+    color: #000;
+}
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-close:hover {
+    color: #fff;
+}
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-inner h2,
+.timegem-ven-dialog.is-connect .timegem-ven-dialog-inner a {
+    color: #000;
+}
+   
+
+.timegem-ven-profile-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+.timegem-ven-profile-head h2 {
+    margin: 0;
+}
+.timegem-ven-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+}
+.timegem-ven-genres {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: greenyellow;
+}
+.timegem-ven-subhead {
+    margin: 48px 0 8px;
+    font-size: 20px;
+    text-transform: uppercase;
+}
+.timegem-ven-subhead:first-of-type {
+    margin-top: 20px;
+}
+.timegem-ven-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.timegem-ven-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+.timegem-ven-list-media {
+    position: relative;
+    flex: none;
+    width: 40px;
+    height: 40px;
+}
+.timegem-ven-list-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.timegem-ven-list-media .timegem-ven-list-rank {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    aspect-ratio: 1;
+    margin: 0;
+    background: #e5fa4d;
+    color: #111;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    opacity: 1;
+}
+.timegem-ven-list img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    flex: none;
+}
+.timegem-ven-list-primary {
+    display: block;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.3;
+}
+.timegem-ven-profile-foot {
+    margin-top: 22px;
+}
+/* Inside the settings card: a divider, not a separate box. */
+.timegem-ven-refresh .timegem-ven-profile-foot {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, .12);
+}
+
+.timegem-ven-profile-foot p:first-child {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    opacity: .65;
+    margin-bottom: 0;
+}
+
+.timegem-ven-disconnect {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    color: black;
+    border: 2px solid black;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    font-family: 'ABC Gravity', sans-serif;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+.timegem-ven-refresh {
+    margin: 0 0 24px;
+    background: white;
+    padding: 16px;
+}
+.timegem-ven-refresh p {
+    margin: 0 0 24px;
+}
+.timegem-ven-refresh__button {
+    -webkit-appearance: none;
+    appearance: none;
+    background: black;
+    color: white;
+    border: 2px solid black;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    font-family: 'ABC Gravity', sans-serif;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+.timegem-ven-refresh__button:hover,
+.timegem-ven-refresh__button:focus-visible {
+    background: white;
+    color: black;
+}
+.timegem-ven-refresh__button:disabled {
+    opacity: .6;
+    cursor: progress;
+}
+.timegem-ven-refresh__status {
+    min-height: 1.4em;
+    margin: 12px 0 0;
+}
+.timegem-ven-refresh__status:empty {
+    display: none;
+}
+.timegem-ven-refresh__reconnect:not(:empty) {
+    margin-top: 12px;
+}
+.timegem-ven-disconnect:hover,
+.timegem-ven-disconnect:focus-visible {
+    background: black;
+    color: white;
+    
+}
+.timegem-ven-list-secondary {
+    display: block;
+    font-size: 12px;
+    opacity: .65;
+    line-height: 1.3;
+}
+.cta-discover {
+    cursor: pointer;
+}
+nav .button-cta {
+    position: relative;
+}
+.timegem-ven-cta-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: red;
+    pointer-events: none;
+}
+.timegem-ven-block_wrapper {
+    max-width: 1320px;
+    margin: 0 auto;
+}
+.timegem-ven-block {
+    position: relative;
+    background: #e5fa4d;
+    color: black;
+    padding: 28px 52px 48px 32px;
+    margin: 0px 0;
+    border-top: 8px solid black;
+}
+
+.timegem-ven-block.timegem-ven-home {
+background:white;
+}
+    
+.timegem-ven-block__help {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 3;
+}
+.timegem-ven-block__help-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 2px solid #00000060;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+.timegem-ven-block__help-btn:hover,
+.timegem-ven-block__help-btn:focus-visible {
+    background: black;
+    color: #e5fa4d;
+}
+.timegem-ven-block__help-tip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    right: 0;
+    width: 240px;
+    padding: 12px 14px;
+    background: black;
+    color: white;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.timegem-ven-block__help:hover .timegem-ven-block__help-tip,
+.timegem-ven-block__help:focus-within .timegem-ven-block__help-tip,
+.timegem-ven-block__help.is-open .timegem-ven-block__help-tip {
+    display: block;
+}
+.timegem-ven-block__help-tip p {
+    margin: 0 0 8px;
+}
+.timegem-ven-block__help-link {
+    color: #e5fa4d;
+    font-weight: 700;
+    text-decoration: underline;
+}
+.timegem-ven-block__help-link:hover,
+.timegem-ven-block__help-link:focus-visible {
+    color: white;
+}
+.timegem-ven-block__like {
+    margin-top: 20px;
+}
+.timegem-ven-block__like-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: black;
+    color: white;
+    
+    font-family: 'ABC Gravity', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    
+    text-transform: uppercase;
+    padding: 6px 16px;
+    cursor: pointer;
+}
+.timegem-ven-block__like-btn.is-liked {
+    background: red;
+    
+}
+.timegem-ven-block__like-btn:disabled {
+    opacity: .6;
+    cursor: default;
+}
+.timegem-ven-block__text {
+    margin: 0;
+    
+    text-transform: uppercase;
+   
+}
+.timegem-ven-block__body {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 400;
+    text-transform: none;
+}
+.timegem-ven-block__symbol {
+    color: black;
+    margin: 0px 0 12px 0;
+    vertical-align: -0.18em;
+}
+.timegem-ven-block__reasons {
+    margin: 12px 0 0;
+    padding: 0 0 0 18px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.timegem-ven-block__reasons li {
+    margin: 2px 0;
+}
+.timegem-ven-block__empty {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    text-transform: none;
+}
+.timegem-ven-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0px;
+    margin: 16px 0 8px;
+}
+.timegem-ven-tab {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'ABC Gravity', sans-serif;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 8px 13px;
+    
+    cursor: pointer;
+}
+
+.timegem-ven-tab span {
+    font-family: 'ABC Gravity', sans-serif;
+}
+
+.timegem-ven-tab:hover {
+    background: red;
+    color: #fff;
+}
+.timegem-ven-tab.is-active {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+}
+.timegem-ven-tab__count {
+    font-size: 11px;
+    font-weight: 700;
+    opacity: .55;
+}
+.timegem-ven-tab.is-active .timegem-ven-tab__count {
+    opacity: .75;
+}
+
+
+
+.timegem-ven-tab:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+}
+.timegem-ven-panel[hidden] {
+    display: none;
+}
+.timegem-ven-month {
+    margin-top: 20px;
+}
+.timegem-ven-month:first-child {
+    margin-top: 10px;
+}
+.timegem-ven-month__name {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    opacity: .55;
+}
+.timegem-ven-month__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.timegem-ven-gem {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 0px 0;
+    border-top: 1px solid rgba(0, 0, 0, .12);
+    cursor: pointer;
+}
+.timegem-ven-gem__name:after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+.timegem-ven-gem:first-child {
+    border-top: 0;
+}
+.timegem-ven-gem:hover {
+background: red;
+color: #fff;
+}
+
+
+
+.timegem-ven-gem__date {
+    flex: none;
+    min-width: 64px;
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+    opacity: 1;
+    font-family: ABC Gravity;
+    display: flex;
+flex-direction: row;
+align-items: flex-start;
+line-height: 0.9;
+padding:8px;
+gap:4px;
+opacity:0.7;
+}
+
+.timegem-ven-gem__day {
+    font-size: 32px;
+}
+
+.timegem-ven-gem .timegem-ven-symbols {
+    flex: none;
+    font-size: 17px;
+}
+.timegem-ven-gem__name {
+    font-weight: 800;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: inherit;
+    line-height: 1.2;
+    font-family: ABC Gravity;
+    font-size:32px;
+    transition:none;
+}
+.timegem-ven-gem__name:hover {
+    text-decoration: none;
+    color:#FFF;
+}
+     .timegem-ven-gem:hover .timegem-ven-symbols {
+    color:black;
+}
+
+
+.timegem-ven-gem__tickets {
+    position: relative;
+    z-index: 1;
+    margin-left: auto;
+    flex: none;
+    background: #ff7b00;
+    
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    text-decoration: none;
+    color: inherit;
+    white-space: nowrap;
+    transition:none;
+}
+.timegem-ven-gem__tickets:hover,
+.timegem-ven-gem__tickets:focus-visible {
+    background: red;
+    color: #fff;
+    
+}
+    .timegem-ven-gem:hover .timegem-ven-gem__tickets {
+    background: red;
+    color: #fff;
+    }
+
+.timegem-ven-gem__unlike {
+    position: relative;
+    z-index: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    margin-left: auto;
+    flex: none;
+    background: transparent;
+    color: inherit;
+    border: 1px solid currentColor;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 7px 14px;
+    cursor: pointer;
+}
+.timegem-ven-gem__unlike:hover,
+.timegem-ven-gem__unlike:focus-visible {
+    background: #111;
+    color: #fff;
+}
+.timegem-ven-gem__unlike:disabled {
+    opacity: .5;
+    cursor: default;
+}
+.timegem-ven-block[hidden] {
+    display: none;
+}
+.timegem-ven-block__caption {
+    margin: 16px 0 10px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    opacity: .65;
+}
+.timegem-ven-block__overview {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 12px 20px;
+    background: black;
+    color: #e5fa4d;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: none;
+}
+.timegem-ven-block__overview:hover,
+.timegem-ven-block__overview:focus-visible {
+    background: red;
+    color: #fff;
+    text-decoration: none;
+}
+.timegem-ven-block__matches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 24px;
+}
+.timegem-ven-block__match {
+    display: inline-flex;
+align-items: flex-start;
+gap: 8px;
+background: none;
+padding: 0;
+border-radius: 0;
+font-size: 16px;
+font-weight: 700;
+line-height: 1.2;
+flex-direction: column;
+justify-content: flex-start;
+width: 80px;
+}
+
+.is-genres .timegem-ven-block__match {
+background: black;
+color: #fff;
+width: max-content;
+}
+
+.timegem-ven-block__matches.is-genres .timegem-ven-block__match {
+    padding: 6px 14px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.timegem-ven-block__match img {
+    width: 64px;
+    height: 64px;
+    border-radius: 0%;
+    object-fit: cover;
+    flex: none;
+    display: block;
+}
+.timegem-ven-block__match.is-more {
+    opacity: .6;
+    padding: 6px 14px;
+}
+@keyframes timegem-ven-shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+}
+.timegem-ven-skeleton {
+    display: inline-block;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.13);
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0) 100%);
+    background-repeat: no-repeat;
+    background-size: 200px 100%;
+    animation: timegem-ven-shimmer 1.2s ease-in-out infinite;
+}
+.timegem-ven-skeleton.is-bar {
+    vertical-align: middle;
+}
+.timegem-ven-skeleton.is-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex: none;
+}
+.timegem-ven-skeleton.is-chip {
+    height: 38px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+.timegem-ven-badge-loading {
+    min-width: 54px;
+    height: 33px;
+    background-color: rgba(0, 0, 0, 0.55);
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(173, 255, 47, 0.28) 50%, rgba(255, 255, 255, 0) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+    .timegem-ven-skeleton {
+        animation: none;
+    }
+}
+html[data-timegem-has-id] .cta-discover {
+    display: none !important;
+}
+html[data-timegem-likes="0"] #timegem-ven-tab-likes,
+html[data-timegem-likes="0"] #timegem-ven-panel-likes,
+html[data-timegem-likes="0"] a[href*="/my-likes"] {
+    display: none !important;
+}
+.timegem-ven-profile-page {
+    color: inherit;
+}
+.timegem-ven-profile-page__frame {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    column-gap: 48px;
+    box-sizing: border-box;
+}
+.timegem-ven-profile-page__side {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+}
+.timegem-ven-profile-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin-top: 0;
+}
+.timegem-ven-profile-nav__tab {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    background: transparent;
+    color: inherit;
+    border: 0;
+    text-align: left;
+    text-decoration: none;
+    font-family: 'ABC Gravity', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    
+    text-transform: uppercase;
+    padding: 12px 14px;
+    cursor: pointer;
+}
+.timegem-ven-profile-nav__tab:hover {
+    background: rgba(0, 0, 0, .06);
+}
+.timegem-ven-profile-nav__tab.is-active {
+    background: #e5fa4d;
+    color: #111;
+}
+.timegem-ven-profile-nav__tab:focus-visible {
+    outline: 2px solid #e5fa4d;
+    outline-offset: 2px;
+}
+.timegem-ven-profile-page__main {
+    min-width: 0;
+}
+.timegem-ven-profile-page__panel[hidden] {
+    display: none;
+}
+.timegem-ven-profile-page__identity h2,
+.timegem-ven-profile-page__panel > h2 {
+    margin: 0 0 20px;
+    font-size: 40px;
+    line-height: 1;
+    text-transform: uppercase;
+}
+.timegem-ven-profile-page__identity > p,
+.timegem-ven-profile-page__panel > p {
+    margin: 0 0 16px;
+    font-size: 20px;
+    line-height: 1.5;
+}
+.timegem-ven-profile-page .timegem-ven-avatar {
+    width: 88px;
+    height: 88px;
+}
+.timegem-ven-profile-page .timegem-ven-list-media {
+    width: 48px;
+    height: 48px;
+}
+.timegem-ven-profile-page .timegem-ven-list img {
+    width: 48px;
+    height: 48px;
+}
+.timegem-ven-featured {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin: 0 0 12px;
+}
+.timegem-ven-featured__item {
+    position: relative;
+}
+.timegem-ven-featured__item .timegem-ven-list-rank {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    aspect-ratio: 1;
+    margin: 0;
+    background: #e5fa4d;
+    color: #111;
+    font-size: 14px;
+    opacity: 1;
+}
+.timegem-ven-featured__item img {
+    width: 100%;
+    aspect-ratio: 1;
+    height: auto;
+    object-fit: cover;
+    display: block;
+    margin-bottom: 10px;
+}
+.timegem-ven-featured__item .timegem-ven-list-primary {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+.timegem-ven-featured__item .timegem-ven-list-secondary {
+    margin-top: 2px;
+    font-size: 13px;
+    opacity: .6;
+}
+.timegem-ven-genre-card {
+    aspect-ratio: 1;
+    background-color: #e7b4d8;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 14px;
+    box-sizing: border-box;
+}
+.timegem-ven-genre-card span {
+    color: #fff;
+    font-family: 'ABC Gravity', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+
+
+.timegem-ven-profile-page__gems {
+    
+}
+.timegem-ven-profile-page__gems h2,
+.timegem-ven-profile-page__gems .timegem-ven-profile-head h2 {
+    color: #111;
+}
+.timegem-ven-profile-page__gems > h2 {
+    margin: 0 0 8px;
+}
+.timegem-ven-profile-page__gems .timegem-ven-disconnect {
+    color: #111;
+    border-color: rgba(0, 0, 0, .25);
+}
+
+.timegem-ven-profile-page__gems .timegem-ven-disconnect:hover {
+    color: white;
+    
+}
+.timegem-ven-profile-page__gems .timegem-ven-tab.is-active {
+    background: #000;
+    color: #fff;
+}
+.timegem-ven-profile-page__gems .timegem-ven-gem {
+    border-top-color: rgba(0, 0, 0, .12);
+}
+@media (max-width: 640px) {
+    .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
+        padding: 28px 24px 56px;
+    }
+    .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner::before {
+        clip-path: polygon(
+            0 0,
+            100% 0,
+            100% calc(100% - 48px),
+            calc(50% + 48px) calc(100% - 48px),
+            50% calc(100% - 16px),
+            calc(50% - 48px) calc(100% - 48px),
+            0 calc(100% - 48px)
+        );
+    }
+    .timegem-ven-connect-choices {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .timegem-ven-connect {
+        flex: none;
+        width: 100%;
+    }
+
+    /* Gem rows: name + match symbols on the first line, date + button on the second. */
+    .timegem-ven-gem {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "name symbol"
+            "date action";
+        align-items: center;
+        column-gap: 12px;
+        row-gap: 6px;
+        padding: 12px 0;
+    }
+    .timegem-ven-gem .timegem-ven-symbols {
+        grid-area: symbol;
+        justify-self: end;
+    }
+    .timegem-ven-gem__name {
+        grid-area: name;
+        font-size: 26px;
+        overflow-wrap: anywhere;
+    }
+    .timegem-ven-gem__date {
+        grid-area: date;
+        min-width: 0;
+        padding: 0;
+        font-size: 16px;
+    }
+    .timegem-ven-gem__day {
+        font-size: 26px;
+    }
+    .timegem-ven-gem__tickets,
+    .timegem-ven-gem__unlike {
+        grid-area: action;
+        margin-left: 0;
+        justify-self: end;
+    }
+}
+@media (max-width: 860px) {
+
+     .is-connect h2 {
+    font-size: 48px;
+    }
+
+    .timegem-ven-gem {
+    row-gap:0px;
+    padding: 8px 0;
+    }
+
+    .timegem-ven-profile-page__frame {
+        grid-template-columns: 1fr;
+        column-gap: 0;
+    }
+    .timegem-ven-profile-page__side {
+        position: static;
+    }
+    .timegem-ven-profile-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        margin-bottom: 28px;
+    }
+    .timegem-ven-profile-page__identity h2,
+    .timegem-ven-profile-page__panel > h2 {
+        font-size: 32px;
+    }
+}
