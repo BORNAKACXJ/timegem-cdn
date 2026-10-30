@@ -587,6 +587,7 @@ background:white;
     text-transform: uppercase;
     letter-spacing: .06em;
     padding: 8px 13px;
+    padding-bottom: 4px;
     
     cursor: pointer;
 }
