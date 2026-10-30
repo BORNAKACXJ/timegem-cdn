@@ -17,7 +17,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         dialogClose: 'Sluiten',
         connectTitle: 'Ontdek jouw must-sees',
         connectIntro:
-            'Koppel je Apple Music of Spotify aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. ' +
+            'Koppel je Spotify of Apple Music aan de agenda van Rotown en ontdek een wereld vol persoonlijke concerttips. ' +
             'Op basis van jouw luistergedrag krijg je suggesties die perfect aansluiten bij jouw smaak, ' +
             'van je favoriete artiesten tot verborgen parels die je nog niet kende.',
         connectPrivacy:
@@ -25,8 +25,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             'We vragen Apple Music/Spotify alleen om een kijkje te nemen in je profiel, zodat we jouw muzieksmaak beter leren kennen. ' +
             'Zo kunnen we je nog beter matchen met concerten die écht bij je passen. ' +
             'Geen spam, geen gedoe met data delen, gewoon de perfecte concerttips voor jou.',
-        connectSpotify: 'Connect with Spotify',
-        connectApple: 'Connect with Apple Music',
+        connectSpotify: 'Connect met Spotify',
+        connectApple: 'Connect met Apple Music',
         connectUnavailable: 'No venue is configured for this page, so connecting is unavailable.',
 
         // Profile (dialog and profile page)
@@ -61,8 +61,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         agendaListing: 'Your matches are marked in the list below.',
         match: {
             direct: 'This is one of your favorite artists',
-            heavy: 'RECOMMENDED BASED ON RELATED ARTISTS',
-            medium: 'RECOMMENDED BASED ON RELATED ARTISTS',
+            heavy: 'AANBEVELING GEBASEERD OP GERELATEERDE ARTIESTEN',
+            medium: 'AANBEVELING GEBASEERD OP GERELATEERDE ARTIEST',
             light: 'RECOMMENDED BASED ON GENRE',
             none: 'This is not a match'
         },
@@ -70,20 +70,20 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         matchCaptionGenres: 'Matching genres',
         matchCaptionArtists: 'Because you listen to',
         helpLabel: 'Meer over deze match',
-        helpText: 'Dit is gebaseerd op jouw Spotify luistergedrag.',
+        helpText: 'Dit is gebaseerd op jouw Spotify of Apple Music luistergedrag.',
         helpLink: 'lees meer',
         like: 'Like',
         liked: 'Liked',
 
         // Profile page menu
-        profileNavLabel: 'My profile',
-        navRecommendations: 'My recommendations',
-        navSettings: 'My settings',
-        navAbout: 'About',
-        recommendationsTitle: 'My recommendations',
+        profileNavLabel: 'Mijn profiel',
+        navRecommendations: 'Mijn concerttips',
+        navSettings: 'Mijn instellingen',
+        navAbout: 'Over',
+        recommendationsTitle: 'Mijn concerttips',
 
         // About
-        aboutTitle: 'About',
+        aboutTitle: 'Over',
         aboutIntro:
             'The lightning bolts tell you how good a match is. More bolts means the show fits your taste better. ' +
             'A star is a direct match: one of your favorite artists.',
@@ -1362,17 +1362,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return list;
     }
 
-    /**
-     * Short tab label. The year is only added when the month falls outside the
-     * current one, so "jan '27" cannot be mistaken for this January.
-     */
+    /** Short tab label: month name only. */
     function monthTabLabel(date, locale) {
-        var label = date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '');
-        var thisYear = new Date().getFullYear();
-        if (date.getFullYear() !== thisYear) {
-            label += " '" + String(date.getFullYear()).slice(-2);
-        }
-        return label;
+        return date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '');
     }
 
     /**
