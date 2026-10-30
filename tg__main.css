@@ -605,12 +605,20 @@ background:white;
     border-color: #000;
 }
 .timegem-ven-tab__count {
-    font-size: 11px;
-    font-weight: 700;
-    opacity: .55;
+  
+       font-weight: 700;
+      
+       background: white;
+       padding: 4px 4px 2px 4px;
+      
+       border-radius: 2px;
+       width: 24px;
+       margin-bottom: 0px;
+       margin-top: -3px;
+       transform: translate(8px, 0px);
 }
 .timegem-ven-tab.is-active .timegem-ven-tab__count {
-    opacity: .75;
+    background: red;
 }
 
 
