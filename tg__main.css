@@ -4,7 +4,7 @@
 .timegem-ven-match-details {
     position: absolute;
     top: 0px;
-    right: 16px;
+    right: 3.75rem;
     background: #000;
     color: #e5fa4d;
     padding: 12px 14px 0px 10px;
@@ -15,6 +15,7 @@
     align-items: center;
     z-index: 2;
     pointer-events: none;
+    filter: drop-shadow(0px 8px 8px #00000020);
 }
 
 .timegem-ven-match-details:after {
@@ -37,6 +38,7 @@ left: 0;
     width: 64px;
            justify-content: center;
 align-items: center;
+margin-right: -4px;
     
 }
 .timegem-ven-home .timegem-ven-symbols {
