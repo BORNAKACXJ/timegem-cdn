@@ -617,9 +617,15 @@ background:white;
        margin-top: -3px;
        transform: translate(8px, 0px);
 }
+
+.timegem-ven-tab:hover .timegem-ven-tab__count {
+    color:black;
+}
+
 .timegem-ven-tab.is-active .timegem-ven-tab__count {
     background: red;
 }
+
 
 
 
