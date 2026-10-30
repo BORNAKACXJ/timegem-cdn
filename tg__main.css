@@ -41,6 +41,9 @@ align-items: center;
 margin-right: -4px;
     
 }
+#timegem-ven-home {
+    scroll-margin-top: 100px; /* room for the sticky site header */
+}
 .timegem-ven-home .timegem-ven-symbols {
 padding-left:8px;
 justify-content: flex-end;
