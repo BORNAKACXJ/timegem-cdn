@@ -1490,12 +1490,46 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
+    var HOME_ANCHOR_ID = 'timegem-ven-home';
+    var RETURN_SCROLL_KEY = 'timegem_ven_return_scrolled';
+
+    /**
+     * Scrolls to the home must-sees block when the visitor just came back from
+     * the connect portal (once per return, so a reload stays put), or when the
+     * URL asks for #timegem-ven-home. The browser's own hash jump misses it
+     * because the block is built after the page has loaded.
+     */
+    function scrollToHomeGems(freshId) {
+        if (!isHomePage()) return;
+
+        var byHash = window.location.hash === '#' + HOME_ANCHOR_ID;
+        var byReturn = false;
+        if (freshId) {
+            try {
+                byReturn = sessionStorage.getItem(RETURN_SCROLL_KEY) !== freshId;
+                sessionStorage.setItem(RETURN_SCROLL_KEY, freshId);
+            } catch (e) {
+                byReturn = true;
+            }
+        }
+        if (!byHash && !byReturn) return;
+
+        // Wait for images above the block so its position no longer shifts.
+        function go() {
+            var target = document.getElementById(HOME_ANCHOR_ID);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (document.readyState === 'complete') go();
+        else window.addEventListener('load', go, { once: true });
+    }
+
     /** Home only: takes the place of the hidden .cta-discover. */
     function renderHomeGemsBlock(hasId) {
         if (!hasId || !isHomePage()) return;
 
         insertBlockBeforeDiscoverCta(function (block) {
             block.className += ' timegem-ven-home';
+            if (!document.getElementById(HOME_ANCHOR_ID)) block.id = HOME_ANCHOR_ID;
 
             var wrap = document.createElement('div');
             wrap.className = 'timegem-ven-block_wrapper';
@@ -2597,6 +2631,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         else {
             renderHomeGemsBlock(hasId);
             renderAgendaBlock(hasId);
+            if (hasId) scrollToHomeGems(freshId);
         }
         bindGemsCta();
 
