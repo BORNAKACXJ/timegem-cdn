@@ -25,6 +25,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             'We vragen Apple Music/Spotify alleen om een kijkje te nemen in je profiel, zodat we jouw muzieksmaak beter leren kennen. ' +
             'Zo kunnen we je nog beter matchen met concerten die écht bij je passen. ' +
             'Geen spam, geen gedoe met data delen, gewoon de perfecte concerttips voor jou.',
+        // Legal copy around the connect buttons. {link} is replaced by a link with the label below.
+        connectConsentAbove: 'Door op de koppeling te klikken kun je je timetable personaliseren. ' +
+            'Om deze persoonlijke timetable mogelijk te maken slaan we je gegevens op, volgens onze {link}.',
+        connectConsentAboveLink: 'Privacy Policy',
+        connectConsentBelow: 'Tenfold is de partner van Onder de Radar voor de persoonlijke timetable. ' +
+            'Tenfold verwerkt persoonsgegevens namens de festivalorganisator. ' +
+            'Door verder te gaan, ga je akkoord met de {link} van Tenfold.',
+        connectConsentBelowLink: 'User Agreement (EULA)',
         connectSpotify: 'Connect met Spotify',
         connectApple: 'Connect met Apple Music',
         connectUnavailable: 'No venue is configured for this page, so connecting is unavailable.',
@@ -45,26 +53,27 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         disconnectButton: 'Disconnect',
 
         // Home must-sees block and recommendations list
-        homeTitle: 'Dit zijn jouw must-sees voor de komende periode',
-        homeOverview: 'Toon volledige overzicht',
         gemTickets: 'Meer info',
         gemsLoading: 'Loading your gems…',
         gemsUpdating: 'Updating your gems…',
         gemsError: 'We could not load your gems right now.',
         gemsEmpty: 'No matches coming up yet \u2014 check back when new shows go on sale.',
         gemsSignedOut: 'Connect to see which shows match your taste this month.',
+        gemsTopTab: 'Upcoming must-sees',
         monthsLabel: 'Months with matches',
+        monthPrev: 'Vorige',
+        monthNext: 'Volgende',
         moreMonthsOne: '+{count} more month with matches',
         moreMonthsMany: '+{count} more months with matches',
 
         // Agenda block
         agendaListing: 'Your matches are marked in the list below.',
         match: {
-            direct: 'This is one of your favorite artists',
-            heavy: 'AANBEVELING GEBASEERD OP GERELATEERDE ARTIESTEN',
-            medium: 'AANBEVELING GEBASEERD OP GERELATEERDE ARTIEST',
-            light: 'RECOMMENDED BASED ON GENRE',
-            none: 'This is not a match'
+            direct: 'Dit is een van je favoriete artiesten',
+            heavy: 'AANBEVOLEN OP BASIS VAN GERELATEERDE ARTIESTEN',
+            medium: 'AANBEVOLEN OP BASIS VAN EEN GERELATEERDE ARTIEST',
+            light: 'AANBEVOLEN OP BASIS VAN GENRE',
+            none: 'Dit is geen match'
         },
         matchUnavailable: 'We could not check this one right now',
         matchCaptionGenres: 'Matching genres',
@@ -159,9 +168,10 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     /** event_slug -> event row, filled from whichever events call we made. */
     var eventsBySlug = {};
 
-    // Recommendations change only when the visitor reconnects or the venue
-    // re-imports, so they are cheap to keep. localStorage, not sessionStorage:
-    // 12 hours has to survive closing the tab.
+    // A cached payload paints the page at once; fetchArtistRecommendations
+    // always revalidates it in the background, because dashboard edits to an
+    // event's related artists can land at any time. localStorage, not
+    // sessionStorage: the instant paint has to survive closing the tab.
     // Bump the version suffix if the cached payload shape ever changes.
     var CACHE_PREFIX = 'timegem_ven_cache_v1:';
     var CACHE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -335,15 +345,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         }
     }
 
-    function isHomePage() {
-        try {
-            var path = (window.location.pathname || '').replace(/\/+$/, '');
-            return path === '';
-        } catch (e) {
-            return false;
-        }
-    }
-
     /** WordPress page at /my-profile and its child slugs. */
     var PROFILE_PATH = '/my-profile';
     var PROFILE_MOUNT = '.article__content-block';
@@ -352,9 +353,25 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return (pathname || '').replace(/\/+$/, '') || '/';
     }
 
+    /**
+     * The About panel is switched off for now. While it is, /my-profile/about
+     * is left to WordPress: we neither build the profile page there nor offer
+     * an About tab. Set to true to bring it back.
+     */
+    var ABOUT_PAGE_ENABLED = false;
+    var ABOUT_SLUGS = ['about', 'my-about'];
+
+    function isDisabledAboutPath(path) {
+        if (ABOUT_PAGE_ENABLED) return false;
+        if (path.indexOf(PROFILE_PATH + '/') !== 0) return false;
+        var slug = path.slice(PROFILE_PATH.length + 1).split('/')[0] || '';
+        return ABOUT_SLUGS.indexOf(slug) !== -1;
+    }
+
     function isProfilePage() {
         try {
             var path = normalizePathname(window.location.pathname);
+            if (isDisabledAboutPath(path)) return false;
             return path === PROFILE_PATH || path.indexOf(PROFILE_PATH + '/') === 0;
         } catch (e) {
             return false;
@@ -407,18 +424,47 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             .catch(function () { return null; });
     }
 
-    function fetchArtistRecommendations(timegemId, venueId, eventSlug) {
+    /**
+     * What a re-render would actually show: the recommendations, trimmed to
+     * one event when the page is about one event. A full venue payload and a
+     * single-event one compare equal when that event's match is the same.
+     */
+    function recommendationsFingerprint(data, eventSlug) {
+        var recs = (data && Array.isArray(data.recommendations)) ? data.recommendations : [];
+        if (eventSlug) {
+            recs = recs.filter(function (r) { return r && r.artist && r.artist.event_slug === eventSlug; });
+        }
+        try { return JSON.stringify(recs); } catch (e) { return null; }
+    }
+
+    /**
+     * Stale-while-revalidate. A cached payload answers at once so the page
+     * paints fast, but the API is always asked again in the background: an
+     * admin can change an event's related artists in the dashboard at any
+     * time, and the cache must not hide that for hours. When the fresh payload
+     * differs from what was shown, `onFresh` gets it to re-render.
+     */
+    function fetchArtistRecommendations(timegemId, venueId, eventSlug, onFresh) {
         var key = cacheKey(timegemId, venueId, eventSlug);
         var hit = cacheRead(key);
-        if (hit) return Promise.resolve({ ok: true, status: 200, data: hit, cached: true });
 
         // A cached full payload already describes every event, so a single-event
-        // page can answer from it rather than making its own request.
-        if (eventSlug) {
-            var full = cacheRead(cacheKey(timegemId, venueId, null));
-            if (full) return Promise.resolve({ ok: true, status: 200, data: full, cached: true });
-        }
+        // page can answer from it rather than waiting on its own request.
+        if (!hit && eventSlug) hit = cacheRead(cacheKey(timegemId, venueId, null));
 
+        var network = requestArtistRecommendations(timegemId, venueId, eventSlug, key);
+        if (!hit) return network;
+
+        var shown = recommendationsFingerprint(hit, eventSlug);
+        network.then(function (result) {
+            if (!result.ok || !result.data || typeof onFresh !== 'function') return;
+            if (recommendationsFingerprint(result.data, eventSlug) === shown) return;
+            onFresh(result);
+        });
+        return Promise.resolve({ ok: true, status: 200, data: hit, cached: true });
+    }
+
+    function requestArtistRecommendations(timegemId, venueId, eventSlug, key) {
         var url = TIMEGEM_API_BASE + '/api/artist-recommendations-v4/' + encodeURIComponent(timegemId) + '?gem=venue';
         if (venueId) url += '&venue_id=' + encodeURIComponent(venueId);
         // Scores the whole venue either way; this just trims the response to one
@@ -635,8 +681,14 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             ? pageSlug
             : null;
 
-        fetchArtistRecommendations(timegemId, venueId, scopeToEvent).then(function (result) {
+        fetchArtistRecommendations(timegemId, venueId, scopeToEvent, renderRecommendations)
+            .then(renderRecommendations);
+
+        function renderRecommendations(result) {
             clearBadgeSkeletons();
+            // A re-render (fresh data replacing a cached paint, or the profile
+            // refresh) must replace the previous badges, not add a second set.
+            clearRenderedRecommendations();
 
             var apiData = result && result.ok ? result.data : null;
             if (!apiData) {
@@ -654,7 +706,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                 var rec = bySlug[slug];
                 if (rec) appendMatchDetails(block, rec);
             });
-            if (isHomePage() || isProfilePage()) renderHomeGems(bySlug);
+            if (isProfilePage()) renderHomeGems(bySlug);
 
             if (isAgendaPage()) {
                 if (pageSlug) {
@@ -662,6 +714,16 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
                     if (bySlug[pageSlug]) prependMatchDetailsToDetails(bySlug[pageSlug]);
                 }
             }
+        }
+    }
+
+    /** Removes the badges and "why" lines a previous render appended. */
+    function clearRenderedRecommendations() {
+        var stale = document.querySelectorAll(
+            '.timegem-ven-match-details:not(.' + SKELETON_BADGE_CLASS + '), .timegem-ven-why'
+        );
+        Array.prototype.forEach.call(stale, function (el) {
+            if (el.parentNode) el.parentNode.removeChild(el);
         });
     }
 
@@ -759,6 +821,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
     var ORIGINAL_HREF_ATTR = 'data-timegem-href';
     var BLOCK_CLASS = 'timegem-ven-block';
     var CONNECT_PORTAL_URL = 'https://my.personaltimetable.com/';
+    // TODO: replace with the real legal document URLs.
+    var PRIVACY_POLICY_URL = '#';
+    var EULA_URL = '#';
     // dsp values the portal understands ('spotify' | 'apple'). A provider the
     // venue has not enabled in connect_providers lands on the normal picker.
     var CONNECT_ICONS = {
@@ -1125,6 +1190,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             return;
         }
 
+        body.appendChild(buildConsentText(TEXT.connectConsentAbove, TEXT.connectConsentAboveLink, PRIVACY_POLICY_URL));
+
         var choices = document.createElement('div');
         choices.className = 'timegem-ven-connect-choices';
 
@@ -1133,6 +1200,27 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         body.appendChild(choices);
+
+        body.appendChild(buildConsentText(TEXT.connectConsentBelow, TEXT.connectConsentBelowLink, EULA_URL));
+    }
+
+    /** Fineprint paragraph; the {link} placeholder becomes an anchor to `url`. */
+    function buildConsentText(template, linkLabel, url) {
+        var p = document.createElement('p');
+        p.className = 'timegem-ven-fineprint timegem-ven-consent';
+
+        var parts = template.split('{link}');
+        p.appendChild(document.createTextNode(parts[0]));
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = linkLabel;
+        p.appendChild(a);
+
+        p.appendChild(document.createTextNode(parts[1] || ''));
+        return p;
     }
 
     function buildDialog() {
@@ -1233,8 +1321,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     var GEMS_BODY_ATTR = 'data-timegem-gems';
     var HOME_GEMS_MONTHS = 12;
-    /** Home page shows a short preview; the full list lives on /my-profile. */
-    var HOME_GEMS_PREVIEW_LIMIT = 8;
+    /** The first tab on /my-profile: the best upcoming matches, whatever the month. */
+    var HOME_GEMS_TOP_LIMIT = 10;
     var gemsRenderId = 0;
 
     /** Month names follow the page's own language rather than the browser's. */
@@ -1242,7 +1330,8 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         try { return document.documentElement.lang || undefined; } catch (e) { return undefined; }
     }
 
-    var MATCH_RANK = { heavy: 0, medium: 1, light: 2, direct: 3 };
+    /** Strongest first: star (favorite artist), then three, two, one bolt. */
+    var MATCH_RANK = { direct: 0, heavy: 1, medium: 2, light: 3 };
 
     function matchRank(rec) {
         var t = rec && rec.matchType ? String(rec.matchType).toLowerCase() : '';
@@ -1274,6 +1363,15 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         gems.sort(function (a, b) { return a.date - b.date; });
         return gems;
+    }
+
+    /** Best matches first (see MATCH_RANK); ties go to the show that is sooner. */
+    function topGems(gems) {
+        return gems.slice().sort(function (a, b) {
+            var rank = matchRank(a.rec) - matchRank(b.rec);
+            if (rank) return rank;
+            return a.date - b.date;
+        }).slice(0, HOME_GEMS_TOP_LIMIT);
     }
 
     function groupGemsByMonth(gems) {
@@ -1367,22 +1465,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         return date.toLocaleDateString(locale, { month: 'short' }).replace(/\.$/, '');
     }
 
-    /**
-     * Home only: the first few upcoming matches as a flat list, with a button
-     * to the full overview on /my-profile. The month tabs live on the profile.
-     */
-    function renderHomeGemsPreview(body, gems, locale) {
-        var shown = gems.slice(0, HOME_GEMS_PREVIEW_LIMIT);
-        body.appendChild(buildGemList({ gems: shown }, locale));
-
-        var more = document.createElement('a');
-        more.className = BLOCK_CLASS + '__overview';
-        more.href = PROFILE_PATH + '/';
-        setText(more, TEXT.homeOverview);
-        body.appendChild(more);
-    }
-
-    /** Fills the home block with the visitor's upcoming matches, by month. */
+    /** Fills the My recommendations panel with the visitor's upcoming matches. */
     function renderHomeGems(bySlug) {
         var body = homeGemsBody();
         if (!body) return;
@@ -1395,11 +1478,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         body.innerHTML = '';
         var locale = pageLocale();
-
-        if (isHomePage()) {
-            renderHomeGemsPreview(body, gems, locale);
-            return;
-        }
 
         var months = groupGemsByMonth(gems);
         var shown = months.slice(0, HOME_GEMS_MONTHS);
@@ -1417,7 +1495,74 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         // Unique per render so repeated renders cannot collide on ids.
         var uid = 'timegem-ven-m' + (++gemsRenderId) + '-';
 
+        // Phones get a pager instead of the tab row, since a sideways-scrolling
+        // row gives no hint that it scrolls:   \u25C0  [current]  [next] \u25B6
+        // The selected period always sits in the first slot with the one after it
+        // beside it. CSS shows either this or the tab row.
+        var currentIndex = 0;
+
+        function pagerArrow(direction, label) {
+            var arrow = document.createElement('button');
+            arrow.type = 'button';
+            arrow.className = 'timegem-ven-pager__arrow is-' + direction;
+            arrow.setAttribute('aria-label', label);
+            var triangle = document.createElement('span');
+            triangle.className = 'timegem-ven-pager__triangle';
+            triangle.setAttribute('aria-hidden', 'true');
+            arrow.appendChild(triangle);
+            return arrow;
+        }
+
+        function pagerSlot(tag) {
+            var slot = document.createElement(tag);
+            slot.className = 'timegem-ven-tab timegem-ven-pager__slot';
+            if (tag === 'button') slot.type = 'button';
+            slot.appendChild(document.createElement('span'));
+            var slotCount = document.createElement('span');
+            slotCount.className = 'timegem-ven-tab__count';
+            slot.appendChild(slotCount);
+            return slot;
+        }
+
+        function fillPagerSlot(slot, period) {
+            slot.firstChild.textContent = period ? period.label : '';
+            slot.lastChild.textContent = period ? period.gems.length : '';
+            slot.classList.toggle('is-empty', !period);
+            if (slot.tagName === 'BUTTON') slot.disabled = !period;
+        }
+
+        var pager = document.createElement('div');
+        pager.className = 'timegem-ven-pager';
+        pager.setAttribute('role', 'group');
+        pager.setAttribute('aria-label', TEXT.monthsLabel);
+
+        var arrowPrev = pagerArrow('prev', TEXT.monthPrev);
+        var slotCurrent = pagerSlot('div');
+        slotCurrent.classList.add('is-active');
+        slotCurrent.setAttribute('aria-current', 'true');
+        var slotNext = pagerSlot('button');
+        var arrowNext = pagerArrow('next', TEXT.monthNext);
+
+        pager.appendChild(arrowPrev);
+        pager.appendChild(slotCurrent);
+        pager.appendChild(slotNext);
+        pager.appendChild(arrowNext);
+
+        function paintPager() {
+            fillPagerSlot(slotCurrent, periods[currentIndex]);
+            fillPagerSlot(slotNext, periods[currentIndex + 1] || null);
+            arrowPrev.disabled = currentIndex <= 0;
+            arrowNext.disabled = currentIndex >= periods.length - 1;
+        }
+
+        arrowPrev.addEventListener('click', function () { selectMonth(currentIndex - 1); });
+        arrowNext.addEventListener('click', function () { selectMonth(currentIndex + 1); });
+        slotNext.addEventListener('click', function () { selectMonth(currentIndex + 1); });
+
         function selectMonth(index) {
+            if (index < 0 || index >= periods.length) return;
+            currentIndex = index;
+            paintPager();
             tabs.forEach(function (tab, i) {
                 var active = i === index;
                 tab.classList.toggle('is-active', active);
@@ -1427,23 +1572,30 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             });
         }
 
-        shown.forEach(function (month, i) {
+        // "Top 10" always leads; the months follow, nearest first.
+        var periods = [{ label: TEXT.gemsTopTab, gems: topGems(gems), isTop: true }].concat(
+            shown.map(function (month) {
+                return { label: monthTabLabel(month.date, locale), gems: month.gems };
+            })
+        );
+
+        periods.forEach(function (period, i) {
             var id = uid + i;
 
             var tab = document.createElement('button');
             tab.type = 'button';
-            tab.className = 'timegem-ven-tab';
+            tab.className = 'timegem-ven-tab' + (period.isTop ? ' is-top' : '');
             tab.id = id + '-tab';
             tab.setAttribute('role', 'tab');
             tab.setAttribute('aria-controls', id);
 
             var label = document.createElement('span');
-            label.textContent = monthTabLabel(month.date, locale);
+            label.textContent = period.label;
             tab.appendChild(label);
 
             var count = document.createElement('span');
             count.className = 'timegem-ven-tab__count';
-            count.textContent = month.gems.length;
+            count.textContent = period.gems.length;
             tab.appendChild(count);
 
             tab.addEventListener('click', function () { selectMonth(i); });
@@ -1465,11 +1617,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             panel.setAttribute('role', 'tabpanel');
             panel.setAttribute('aria-labelledby', id + '-tab');
 
-            var name = document.createElement('h4');
-            name.className = 'timegem-ven-month__name';
-            name.textContent = month.date.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-            //panel.appendChild(name);
-            panel.appendChild(buildGemList(month, locale));
+            panel.appendChild(buildGemList(period, locale));
 
             tabs.push(tab);
             panels.push(panel);
@@ -1478,8 +1626,9 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         });
 
         body.appendChild(tablist);
+        body.appendChild(pager);
         body.appendChild(panelWrap);
-        selectMonth(0); // nearest month first
+        selectMonth(0); // opens on the Top 10
 
         var rest = months.length - shown.length;
         if (rest > 0) {
@@ -1488,65 +1637,6 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
             setText(more, fmt(rest === 1 ? TEXT.moreMonthsOne : TEXT.moreMonthsMany, { count: rest }));
             body.appendChild(more);
         }
-    }
-
-    var HOME_ANCHOR_ID = 'timegem-ven-home';
-    var RETURN_SCROLL_KEY = 'timegem_ven_return_scrolled';
-
-    /**
-     * Scrolls to the home must-sees block when the visitor just came back from
-     * the connect portal (once per return, so a reload stays put), or when the
-     * URL asks for #timegem-ven-home. The browser's own hash jump misses it
-     * because the block is built after the page has loaded.
-     */
-    function scrollToHomeGems(freshId) {
-        if (!isHomePage()) return;
-
-        var byHash = window.location.hash === '#' + HOME_ANCHOR_ID;
-        var byReturn = false;
-        if (freshId) {
-            try {
-                byReturn = sessionStorage.getItem(RETURN_SCROLL_KEY) !== freshId;
-                sessionStorage.setItem(RETURN_SCROLL_KEY, freshId);
-            } catch (e) {
-                byReturn = true;
-            }
-        }
-        if (!byHash && !byReturn) return;
-
-        // Wait for images above the block so its position no longer shifts.
-        function go() {
-            var target = document.getElementById(HOME_ANCHOR_ID);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        if (document.readyState === 'complete') go();
-        else window.addEventListener('load', go, { once: true });
-    }
-
-    /** Home only: takes the place of the hidden .cta-discover. */
-    function renderHomeGemsBlock(hasId) {
-        if (!hasId || !isHomePage()) return;
-
-        insertBlockBeforeDiscoverCta(function (block) {
-            block.className += ' timegem-ven-home';
-            if (!document.getElementById(HOME_ANCHOR_ID)) block.id = HOME_ANCHOR_ID;
-
-            var wrap = document.createElement('div');
-            wrap.className = 'timegem-ven-block_wrapper';
-
-            var title = document.createElement('h3');
-            title.className = BLOCK_CLASS + '__text';
-            setText(title, TEXT.homeTitle);
-            wrap.appendChild(title);
-
-            var body = document.createElement('div');
-            body.className = BLOCK_CLASS + '__body';
-            body.setAttribute(GEMS_BODY_ATTR, '');
-            wrap.appendChild(body);
-
-            block.appendChild(wrap);
-            mountBlockHelp(block);
-        });
     }
 
     /**
@@ -1692,8 +1782,33 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
      * related/direct matches and {name, type} for genre ones, so the presence of
      * `type` is what tells the two apart.
      */
+    /**
+     * A direct match is the event's own artist, so there is no "related artist"
+     * to take a picture from. Build the same {name, image_url} shape from the
+     * recommendation's artist, falling back to the event's own image.
+     */
+    function directArtistMatch(recommendation) {
+        var artist = (recommendation && recommendation.artist) || {};
+        var slug = artist.event_slug || getSlugFromCurrentPath();
+        var ev = slug ? eventsBySlug[slug] : null;
+
+        var name = artist.name || artist.artist_name || (ev && ev.event_name) || '';
+        var image = artist.image_url || artist.artist_image_url || artist.image ||
+            (ev && ev.event_image_url) || '';
+
+        return name || image ? { name: name, image_url: image } : null;
+    }
+
     function buildMatchDetails(recommendation) {
         var detailed = (recommendation && recommendation.detailedMatches) || [];
+
+        var isDirect = recommendation && recommendation.matchType &&
+            String(recommendation.matchType).toLowerCase() === 'direct';
+        if (isDirect && !detailed.some(function (m) { return m && m.image_url; })) {
+            var own = directArtistMatch(recommendation);
+            if (own) detailed = [own];
+        }
+
         if (!detailed.length) return null;
 
         var isGenre = detailed.every(function (m) { return m && m.type; });
@@ -2049,6 +2164,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
     function profileNavItems() {
         return PROFILE_NAV.filter(function (item) {
+            if (item.id === 'about' && !ABOUT_PAGE_ENABLED) return false;
             return item.id !== 'likes' || likesEnabled();
         });
     }
@@ -2511,7 +2627,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
 
         renderProfileSettings(panels.settings, hasId);
         if (panels.likes) renderProfileLikes(panels.likes, hasId);
-        renderProfileAbout(panels.about);
+        if (panels.about) renderProfileAbout(panels.about);
 
         //frame.appendChild(side);
         //frame.appendChild(main);
@@ -2628,11 +2744,7 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         syncNavCtaLabel(hasId);
         syncLikesFlag();
         if (isProfilePage()) renderProfilePageWhenReady(hasId);
-        else {
-            renderHomeGemsBlock(hasId);
-            renderAgendaBlock(hasId);
-            if (hasId) scrollToHomeGems(freshId);
-        }
+        else renderAgendaBlock(hasId);
         bindGemsCta();
 
         if (hasId && SHOW_LOADING_STATES) {
@@ -2653,6 +2765,34 @@ var TIMEGEM_API_BASE = 'https://api.timegem.nl';
         link.href = STYLESHEET_URL;
         document.head.appendChild(link);
     }
+
+    /**
+     * Back from the connect portal (?timegem_id= on the URL): hand the visitor
+     * straight to /my-profile. The id is saved first so the profile page knows
+     * them without the param, and the stale cache / freshness stamp that run()
+     * would have handled are dealt with here since run() never gets a turn.
+     *
+     * Already on the profile pages (e.g. reconnecting from My settings) there is
+     * nowhere to go, so that visit stays where it is.
+     */
+    function redirectToProfileAfterConnect() {
+        var freshId = getTimegemIdFromUrl();
+        if (!freshId || isProfilePage()) return false;
+
+        getTimegemId(); // stores the id in localStorage
+        cacheClear(CACHE_PREFIX + freshId);
+        writeStoredProfileUpdated(new Date());
+
+        try {
+            window.location.replace(PROFILE_PATH + '/');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Before anything else is built: if we are leaving, don't paint this page.
+    if (redirectToProfileAfterConnect()) return;
 
     // Set the flag before waiting on the DOM: <html> already exists, so the hide
     // rule can apply the moment the stylesheet lands.
