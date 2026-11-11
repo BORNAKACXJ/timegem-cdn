@@ -41,14 +41,6 @@ align-items: center;
 margin-right: -4px;
     
 }
-#timegem-ven-home {
-    scroll-margin-top: 100px; /* room for the sticky site header */
-}
-.timegem-ven-home .timegem-ven-symbols {
-padding-left:8px;
-justify-content: flex-end;
-}
-
 .timegem-ven-about-legend {
     list-style: none;
     margin: 16px 0 0;
@@ -199,6 +191,10 @@ justify-content: flex-end;
     line-height: 1.5;
     opacity: .7;
     margin: 0;
+}
+.timegem-ven-consent a {
+    color: inherit;
+    text-decoration: underline;
 }
 .timegem-ven-dialog-body {
     max-height: 70vh;
@@ -444,10 +440,6 @@ nav .button-cta {
     border-top: 8px solid black;
 }
 
-.timegem-ven-block.timegem-ven-home {
-background:white;
-}
-    
 .timegem-ven-block__help {
     position: absolute;
     top: 16px;
@@ -637,6 +629,80 @@ background:white;
     outline: 2px solid #000;
     outline-offset: 2px;
 }
+/* Month pager: phones only (see the 640px query), the tab row covers the rest.
+   Layout:  <  [current] [next]  >   */
+.timegem-ven-pager {
+    display: none;
+    align-items: stretch;
+    justify-content: space-between;
+    margin: 16px 0 8px;
+}
+.timegem-ven-pager__arrow {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.timegem-ven-pager__arrow.is-next {
+    width: 12px;
+}
+
+.timegem-ven-pager__triangle {
+    display: block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+}
+.timegem-ven-pager__arrow.is-prev {
+    width: 20px;
+    margin-left: -20px;
+}
+.timegem-ven-pager__arrow.is-prev .timegem-ven-pager__triangle {
+    border-width: 6px 10px 6px 0;
+    border-right-color: currentColor;
+}
+.timegem-ven-pager__arrow.is-next .timegem-ven-pager__triangle {
+    border-width: 9px 0 9px 14px;
+    border-left-color: currentColor;
+}
+.timegem-ven-pager__arrow:disabled {
+    opacity: .25;
+    cursor: default;
+}
+.timegem-ven-pager__arrow:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+}
+.timegem-ven-pager__slot {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+/* No counts in the pager; the tab row on larger screens keeps them. */
+.timegem-ven-pager__slot .timegem-ven-tab__count {
+    display: none;
+}
+/* Current month (with the back arrow) hugs the left, next month (with its arrow) the right. */
+.timegem-ven-pager__slot.is-active {
+    margin-right: auto;
+}
+.timegem-ven-pager__slot.is-active:hover {
+    background: #000;
+    color: #fff;
+}
+.timegem-ven-pager__slot.is-empty {
+    visibility: hidden;
+}
 .timegem-ven-panel[hidden] {
     display: none;
 }
@@ -794,27 +860,6 @@ opacity:0.7;
     text-transform: uppercase;
     letter-spacing: .08em;
     opacity: .65;
-}
-.timegem-ven-block__overview {
-    display: inline-block;
-    margin-top: 24px;
-    padding: 12px 20px;
-    background: black;
-    color: #e5fa4d;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: none;
-}
-.timegem-ven-block__overview:hover,
-.timegem-ven-block__overview:focus-visible {
-    background: red;
-    color: #fff;
-    text-decoration: none;
 }
 .timegem-ven-block__matches {
     display: flex;
@@ -1078,6 +1123,11 @@ html[data-timegem-likes="0"] a[href*="/my-likes"] {
 .timegem-ven-profile-page__gems .timegem-ven-gem {
     border-top-color: rgba(0, 0, 0, .12);
 }
+
+.timegem-ven-month__list .timegem-ven-symbols {
+    justify-content: end;
+}
+
 @media (max-width: 640px) {
     .timegem-ven-dialog.is-connect .timegem-ven-dialog-inner {
         padding: 28px 24px 56px;
@@ -1102,22 +1152,12 @@ html[data-timegem-likes="0"] a[href*="/my-likes"] {
         width: 100%;
     }
 
-    /* Month tabs: one row, swipe sideways, snap to each tab. */
+    /* Months: a pager instead of a tab row you would have to know to swipe. */
     .timegem-ven-tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-x: contain;
-        scrollbar-width: none;
-    }
-    .timegem-ven-tabs::-webkit-scrollbar {
         display: none;
     }
-    .timegem-ven-tab {
-        flex: 0 0 auto;
-        scroll-snap-align: start;
+    .timegem-ven-pager {
+        display: flex;
     }
 
     /* Gem rows: name + match symbols on the first line, date + button on the second. */
@@ -1135,6 +1175,7 @@ html[data-timegem-likes="0"] a[href*="/my-likes"] {
     .timegem-ven-gem .timegem-ven-symbols {
         grid-area: symbol;
         justify-self: end;
+        justify-content: end;
     }
     .timegem-ven-gem__name {
         grid-area: name;
